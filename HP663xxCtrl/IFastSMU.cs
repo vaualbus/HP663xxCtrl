@@ -38,10 +38,9 @@ namespace HP663xxCtrl {
 
     public enum OutputEnum
     {
+        Output_None,
         Output_1,
         Output_2,
-        Output_All,
-        Output_None
     };
 
     public enum DisplayState
