@@ -50,11 +50,12 @@ namespace HP663xxCtrl {
             System.Drawing.Color.Black, System.Drawing.Color.Red,
             System.Drawing.Color.Blue, System.Drawing.Color.Green
         };
+
         private void GoButton_Click(object sender, RoutedEventArgs e) {
+
             if (VM.InstThread != null || VM.InstWorker != null)
                 return;
-            ConnectButton.IsEnabled = false;
-            DisconnectButton.IsEnabled = true;
+           
             VM.InstWorker = new InstrumentWorker(AddressComboBox.Text);
             VM.InstWorker.WorkerDone += delegate(object sender2, EventArgs args)
             {
@@ -66,6 +67,7 @@ namespace HP663xxCtrl {
                     DisconnectButton.IsEnabled = false;
                 }));
             };
+
             VM.InstWorker.NewState += delegate(object sender2, InstrumentState state)
             {
                 Dispatcher.BeginInvoke((Action)(() =>
@@ -73,24 +75,34 @@ namespace HP663xxCtrl {
                     UpdateStateLabels(sender2, state);
                 }));
             };
+
             VM.InstWorker.DataAcquired += delegate(object sender2, MeasArray measArray)
             {
                 Dispatcher.BeginInvoke((Action)(() => { HandleDataAcquired(sender2, measArray); }));
             };
+
             VM.InstWorker.ProgramDetailsReadback += delegate(object sender2, ProgramDetails details)
             {
                 Dispatcher.BeginInvoke((Action)(() => { HandleProgramDetailsReadback(sender2, details); }));
             };
+
             VM.InstWorker.LogerDatapointAcquired += delegate(object sender2, LoggerDatapoint point)
             {
                 Dispatcher.BeginInvoke((Action)(() => { HandleLogDatapoint(sender2, point); }));
             };
-            VM.InstWorker.StateChanged += delegate(object sender2, InstrumentWorker.StateEventData eventData)
+
+            VM.InstWorker.StateChanged += delegate (object sender2, InstrumentWorker.StateEventData eventData)
             {
                 Dispatcher.BeginInvoke((Action)(() =>
                 {
-                    switch (eventData.State) {
+
+                    switch (eventData.State)
+                    {
                         case InstrumentWorker.StateEnum.Connected:
+
+                            ConnectButton.IsEnabled = false;
+                            DisconnectButton.IsEnabled = true;
+
                             ConnectionStatusBarItem.Content = "CONNECTED";
                             AcquireButton.IsEnabled = true;
                             ApplyProgramButton.IsEnabled = true;
@@ -118,6 +130,26 @@ namespace HP663xxCtrl {
                             if (AcqDataRecord != null && AcqDataRecord.DataSeries.Count != 0)
                                 SaveAcquireButton.IsEnabled = true;
                             break;
+                        case InstrumentWorker.StateEnum.ConnectionFailed:
+                            //
+                            // Connection to instruments has failed, error out and
+                            // wait for a new connection.
+                            //
+                            // Cannot connect to instruments.
+                            MessageBox.Show($"Cannot connect to instruments: {AddressComboBox.Text}!");
+
+                            AcquireButton.IsEnabled = false;
+                            ApplyProgramButton.IsEnabled = false;
+                            StopAcquireButton.IsEnabled = false;
+                            ClearProtectionButton.IsEnabled = false;
+                            LogButton.IsEnabled = false;
+                            ModelStatusBarItem.Content = "-----";
+                            AddressComboBox.IsEnabled = true;
+                            ConnectButton.IsEnabled = true;
+                            DisconnectButton.IsEnabled = false;
+
+                            ConnectionStatusBarItem.Content = "CONNECTION FAILED";
+                            break;
                         case InstrumentWorker.StateEnum.Disconnected:
                             ConnectionStatusBarItem.Content = "DISCONNECTED";
                             AcquireButton.IsEnabled = false;
@@ -127,12 +159,14 @@ namespace HP663xxCtrl {
                             LogButton.IsEnabled = false;
                             ModelStatusBarItem.Content = "-----";
                             AddressComboBox.IsEnabled = true;
+                            VM.InstWorker.InstrumentIsConnected = false;
                             break;
                         case InstrumentWorker.StateEnum.Measuring:
                             ConnectionStatusBarItem.Content = "MEASURING"; break;
                     }
                 }));
             };
+
             VM.InstThread = new Thread(VM.InstWorker.ThreadMain);
             VM.InstThread.IsBackground = true;
 

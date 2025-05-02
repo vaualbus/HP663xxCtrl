@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Ivi.Visa;
 using System.CodeDom;
 using ZedGraph;
+using System.Windows;
+using System.Diagnostics;
 
 namespace HP663xxCtrl {
     public class InstrumentWorker {
@@ -25,9 +27,12 @@ namespace HP663xxCtrl {
         public volatile bool StopAcquireRequested = false;
         ProgramDetails LastProgramDetails;
 
+        public volatile bool InstrumentIsConnected = false; 
+
         public enum StateEnum {
             Disconnected,
             Connected,
+            ConnectionFailed,
             Measuring,
             InitStage
         }
@@ -81,6 +86,7 @@ namespace HP663xxCtrl {
             this.VisaAddress = address;
             EventQueue = new BlockingCollection<Command>(new ConcurrentQueue<Command>());
         }
+
         public event EventHandler WorkerDone;
         public event EventHandler<InstrumentState> NewState;
         public event EventHandler<StateEventData> StateChanged;
@@ -90,107 +96,140 @@ namespace HP663xxCtrl {
         private bool HasTwoMeasureChannels = false;
         private bool HasSeprateEnableChannels = false;
 
-        public void ThreadMain() {
+        public void ThreadMain()
+        {
             // have to open the device to find the ID 
-            
-            IMessageBasedSession visaDev = (IMessageBasedSession)GlobalResourceManager.Open(VisaAddress,AccessModes.None, 1000);
-            visaDev.Clear();
+            try
+            {
+                IMessageBasedSession visaDev = (IMessageBasedSession)GlobalResourceManager.Open(VisaAddress, AccessModes.None, 1000);
+                visaDev.Clear();
 
-            visaDev.FormattedIO.WriteLine("*IDN?");
-            string idn = visaDev.FormattedIO.ReadLine();
-            if (K2304.SupportsIDN(idn))
-            {
-                dev = new K2304(visaDev);
-            }
-            else if (HP663xx.SupportsIDN(idn))
-            {
-                dev = new HP663xx(visaDev);
-            }
-            else if (B296x.SupportsIDN(idn))
-            {
-                dev = new B296x(visaDev);
 
-                // Copied from example code.
-                visaDev.TerminationCharacter = 10;
-                visaDev.TerminationCharacterEnabled = true;
-                
-                HasTwoMeasureChannels = dev.HasOutput2;
-                HasSeprateEnableChannels = HasTwoMeasureChannels;
+                visaDev.FormattedIO.WriteLine("*IDN?");
+                string idn = visaDev.FormattedIO.ReadLine();
+                if (K2304.SupportsIDN(idn))
+                {
+                    dev = new K2304(visaDev);
+                }
+                else if (HP663xx.SupportsIDN(idn))
+                {
+                    dev = new HP663xx(visaDev);
+                }
+                else if (B296x.SupportsIDN(idn))
+                {
+                    dev = new B296x(visaDev);
+
+                    // Copied from example code.
+                    visaDev.TerminationCharacter = 10;
+                    visaDev.TerminationCharacterEnabled = true;
+
+                    HasTwoMeasureChannels = dev.HasOutput2;
+                    HasSeprateEnableChannels = HasTwoMeasureChannels;
+                }
+                else
+                    throw new Exception("unsupported device");
+
+                if (dev != null)
+                {
+                    InstrumentIsConnected = true;
+                }
             }
-            else
-                throw new Exception("unsupported device");
+            catch (Exception)
+            {
+                // Cannot connect to instruments.
+                Debug.WriteLine($"ERROR: Cannot connect to instruments: {VisaAddress}!");
+
+                if (StateChanged != null)
+                {
+                    StateChanged(this, new StateEventData { State = StateEnum.ConnectionFailed, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
+                }
+            }
 
             // Send init state 
-
-            if (StateChanged != null) StateChanged(this, new StateEventData { State=StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
-            if (ProgramDetailsReadback != null) {
-                ProgramDetails progDetails = dev.ReadProgramDetails();
-                LastProgramDetails = progDetails;
-                ProgramDetailsReadback(this, LastProgramDetails);
-            }
-            RefreshDisplay();
-            LastRefresh = DateTime.Now;
-
-            while (!StopRequested) {
-                Command cmd;
-                int timeout = (int)LastRefresh.AddMilliseconds(refreshDelay_ms).Subtract(DateTime.Now).TotalMilliseconds;
-                while (EventQueue.TryTake(out cmd, timeout<10?30:timeout)) {
-                    switch (cmd.cmd) {
-                        case CommandEnum.IRange:
-                            DoSetCurrentRange((double)cmd.arg);
-                            break;
-                        case CommandEnum.Acquire:
-                            DoAcquisition((AcquireDetails)cmd.arg);
-                            break;
-                        case CommandEnum.Log:
-                            var args = (object[]) cmd.arg;
-                            DoLog( (OutputEnum)args[0], (SenseModeEnum)args[1],(double)args[2]);
-                            break;
-                        case CommandEnum.Program:
-                            DoProgram((ProgramDetails)cmd.arg);
-                            break;
-                        case CommandEnum.ClearProtection:
-                            DoClearProtection();
-                            break;
-                        case CommandEnum.SetACDCDetector:
-                            DoACDCDetector((CurrentDetectorEnum)cmd.arg);
-                            break;
-                        case CommandEnum.DLFirmware:
-                            DoDLFirmware((string)cmd.arg);
-                            break;
-
-                        case CommandEnum.SendTextToDisplay:
-                            ((HP663xx)dev).SetDisplayText((string)cmd.arg);
-                             break;
-
-                        case CommandEnum.ClearDisplay:
-                            ((HP663xx)dev).SetDisplayText("", true);
-                            break;
-
-                        case CommandEnum.SetDisplayState:
-                            ((HP663xx)dev).SetDisplayState((DisplayState)cmd.arg);
-                            break;
-
-                        case CommandEnum.SetMeasureWindow:
-                            ((HP663xx)dev).SetMeasureWindowType((MeasWindowType)cmd.arg);
-                            break;
-
-                        default:
-                            throw new Exception("Unhandled command in InstrumentWorker");
-                    }
+            if (InstrumentIsConnected)
+            {
+                if (StateChanged != null)
+                {
+                    StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
+                }
+                
+                if (ProgramDetailsReadback != null)
+                {
+                    ProgramDetails progDetails = dev.ReadProgramDetails();
+                    LastProgramDetails = progDetails;
+                    ProgramDetailsReadback(this, LastProgramDetails);
                 }
                 RefreshDisplay();
                 LastRefresh = DateTime.Now;
+
+                while (!StopRequested)
+                {
+                    Command cmd;
+                    int timeout = (int)LastRefresh.AddMilliseconds(refreshDelay_ms).Subtract(DateTime.Now).TotalMilliseconds;
+                    while (EventQueue.TryTake(out cmd, timeout < 10 ? 30 : timeout))
+                    {
+                        switch (cmd.cmd)
+                        {
+                            case CommandEnum.IRange:
+                                DoSetCurrentRange((double)cmd.arg);
+                                break;
+                            case CommandEnum.Acquire:
+                                DoAcquisition((AcquireDetails)cmd.arg);
+                                break;
+                            case CommandEnum.Log:
+                                var args = (object[])cmd.arg;
+                                DoLog((OutputEnum)args[0], (SenseModeEnum)args[1], (double)args[2]);
+                                break;
+                            case CommandEnum.Program:
+                                DoProgram((ProgramDetails)cmd.arg);
+                                break;
+                            case CommandEnum.ClearProtection:
+                                DoClearProtection();
+                                break;
+                            case CommandEnum.SetACDCDetector:
+                                DoACDCDetector((CurrentDetectorEnum)cmd.arg);
+                                break;
+                            case CommandEnum.DLFirmware:
+                                DoDLFirmware((string)cmd.arg);
+                                break;
+
+                            case CommandEnum.SendTextToDisplay:
+                                ((HP663xx)dev).SetDisplayText((string)cmd.arg);
+                                break;
+
+                            case CommandEnum.ClearDisplay:
+                                ((HP663xx)dev).SetDisplayText("", true);
+                                break;
+
+                            case CommandEnum.SetDisplayState:
+                                ((HP663xx)dev).SetDisplayState((DisplayState)cmd.arg);
+                                break;
+
+                            case CommandEnum.SetMeasureWindow:
+                                ((HP663xx)dev).SetMeasureWindowType((MeasWindowType)cmd.arg);
+                                break;
+
+                            default:
+                                throw new Exception("Unhandled command in InstrumentWorker");
+                        }
+                    }
+                    RefreshDisplay();
+                    LastRefresh = DateTime.Now;
+                }
+
+                try
+                {
+                    EventQueue.Dispose();
+                    EventQueue = null;
+                }
+                catch { }
+
+                dev.Close();
             }
-            try {
-                EventQueue.Dispose();
-                EventQueue = null;
-            } catch {}
-            
-            dev.Close();
+
             if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Disconnected, HasTwoMeasureChannels = HasTwoMeasureChannels });
-            if(WorkerDone!=null)
-                WorkerDone.Invoke(this,null);
+            if (WorkerDone != null)
+                WorkerDone.Invoke(this, null);
         }
 
         public event EventHandler<MeasArray> DataAcquired;
@@ -245,6 +284,7 @@ namespace HP663xxCtrl {
             }
             if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
         }
+
         // Must set StopAcquireRequested to false before starting acquisition
         //
         // Also, the returned AcquisitionData structure will have a blank 
