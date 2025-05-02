@@ -1,0 +1,659 @@
+﻿﻿using Ivi.Visa;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
+using System.Windows.Media.Animation;
+
+namespace HP663xxCtrl
+{
+    internal class B296x : IFastSMU
+    {
+        #region Private Methods
+        private string ID;
+        private string Model;
+        private double LineFreq;
+        private IMessageBasedSession dev;
+        private CultureInfo CI = CultureInfo.InvariantCulture;
+
+        Stopwatch LoggingStopwatch;
+
+        private string ReadString()
+        {
+            return dev.FormattedIO.ReadLine();
+        }
+
+        private void WriteString(string msg)
+        {
+            dev.FormattedIO.WriteLine(msg);
+        }
+
+        private string ReadWrite(string msg)
+        {
+            WriteString(msg);
+            return ReadString().Trim();
+        }
+
+        private string Query(string cmd)
+        {
+            WriteString(cmd);
+
+            return ReadString();
+        }
+
+        double[] QueryDouble(string cmd)
+        {
+            //WriteString(cmd);
+            return Query(cmd).Trim()
+                .Split(new char[] { ',' })
+                .Select(x => double.Parse(x, CI)).ToArray();
+            //return dev.FormattedIO.ReadBinaryBlockOfDouble();
+        }
+
+        string[] QueryString(string cmd)
+        {
+            return Query(cmd).Trim().Split(new char[] { ',' });
+        }
+
+        // Reimplemented here versus the IVI library version because I 
+        // Couldn't figure out how to read the final \n at the end of the block,
+        // which was causing communications issues.
+        // Note that you need to read the '#' before calling this function
+        private float[] ReadFloatBlock()
+        {
+
+            byte[] x;
+            int i = 0;
+
+            x = dev.RawIO.Read();
+
+            int lenLen = int.Parse(System.Text.Encoding.ASCII.GetString(x, i, 1));
+            i++;
+
+            int len = int.Parse(System.Text.Encoding.ASCII.GetString(x, i, lenLen));
+            i += lenLen;
+
+            // If more data is needed?
+            int expectedTotalLen = i + len;
+            while (x.Length < expectedTotalLen)
+            {
+                x = x.Concat(dev.RawIO.Read()).ToArray();
+            }
+
+            if (len % 4 != 0)
+            {
+                throw new FormatException();
+            }
+
+            int n = len / 4;
+            var ret = new float[n];
+            var be = new byte[4];
+            for (int j = 0; j < n; i += 4, j++)
+            {
+                // swap byte order
+                be[0] = x[i + 3];
+                be[1] = x[i + 2];
+                be[2] = x[i + 1];
+                be[3] = x[i + 0];
+                ret[j] = BitConverter.ToSingle(be, 0);
+            }
+
+            return ret;
+        }
+
+        private double[] GetCurrentRanges()
+        {
+            double[] ret = null;
+            ret = new double[] { 10e-9, 100e-9, 1e-6, 10e-6, 100e-6, 1e-3, 10e-3, 100e-3, 1, 1.5, 3, 10 };
+
+            return ret;
+        }
+
+        private uint ReadHexString(string str)
+        {
+            uint val = 0;
+            if (str.Length > 2 && str[0] == '#' && str[1] == 'H')
+            {
+                str = str.Substring(2);
+                val = uint.Parse(str, CI);
+            }
+
+            return val;
+        }
+
+        #endregion
+
+        #region Public Methods and fields
+
+        public bool HasOutput2 { get; private set; }
+
+        public bool HasDVM => false;
+
+        public bool HasOVP => true;
+
+        public bool HasDataLog => false;
+
+        public B296x(IMessageBasedSession visaDev)
+        {
+            dev = visaDev;
+            dev.Clear();
+            dev.TimeoutMilliseconds = 5000;
+
+            // Read device ID
+            ID = Query("*IDN?");
+
+            var IDParts = QueryString("*IDN?");
+            if (IDParts.Length != 4)
+            {
+                dev.Dispose();
+                dev = null;
+                throw new InvalidOperationException("Not a known B296x supply!");
+            }
+
+            // Select proper model
+            Model = IDParts[1];
+            switch (Model.ToUpper())
+            {
+                case "B2961A":
+                case "B2961B":
+                    HasOutput2 = false;
+                    break;
+
+
+                case "B2962A":
+                case "B2962B":
+                    HasOutput2 = true;
+                    break;
+
+                default:
+                    dev.Dispose();
+                    dev = null;
+                    throw new InvalidOperationException("Not a known B296x supply!");
+            }
+
+            // Clear PTR/NTR/ENABLE register
+            WriteString("STATUS:PRESET");
+
+            // clear status registers
+            WriteString("*CLS");
+            // Abort all pending trigger actions
+            WriteString("ABOR:ALL");
+            ClearErrors();
+
+            // WriteString(":FORMAT REAL");
+            WriteString(":FORMat:BORDer NORMAL");
+
+            // Perform initial measure setup
+            WriteString(":SENS:CURR:NPLC 0.1");
+            WriteString(":SENS:VOLT:NPLC 0.1");
+
+            // Set default display view.
+            WriteString(":DISP:ENAB ON");
+            WriteString(":DISP:VIEW DUAL");
+
+            // Default NPLC set to not auto mode.
+            WriteString($":SENS:NPLC:AUTO 0");
+            WriteString($":SENS2:NPLC:AUTO 0");
+
+            // Get the current line frequency, used for NPLC settings.
+            LineFreq = QueryDouble(":SYST:LFR?")[0];
+        }
+
+        public void ClearErrors()
+        {
+            string msg;
+            while (!((msg = Query("SYSTem:ERRor?")).StartsWith("+0,")))
+            {
+            }
+        }
+
+        public void Reset()
+        {
+            WriteString("*RST");
+            WriteString("*CLS");
+            WriteString("STAT:PRES");
+            WriteString("*SRE 0");
+            WriteString("*ESE 0");
+        }
+
+        public void Close(bool goToLocal = true)
+        {
+            if (dev != null)
+            {
+                if (goToLocal)
+                {
+                    if (dev is IGpibSession)
+                    {
+                        ((IGpibSession)dev).SendRemoteLocalCommand(GpibInstrumentRemoteLocalMode.GoToLocal);
+                    }
+                }
+                dev.Dispose();
+                dev = null;
+            }
+        }
+
+        public void SetIV(int channel, double voltage, double current)
+        {
+            // Set output mode, no wave form, fixed value.
+            WriteString(":SOUR:VOLT:MODE FIX");
+
+            // Set the current/voltage to the channel.
+            WriteString(":SOUR:FUNC:MODE VOLT");
+
+            if (channel == 1)
+            {
+                WriteString($":SOUR:CURR {current.ToString(CI)}");
+                WriteString($":SOUR:VOLT {voltage.ToString(CI)}");
+            }
+            else
+            {
+                WriteString($":SOUR2:CURR {current.ToString(CI)}");
+                WriteString($":SOUR2:VOLT {voltage.ToString(CI)}");
+            }
+
+        }
+
+        public void SetOVP(double ovp)
+        {
+            if (double.IsNaN(ovp))
+            {
+                WriteString(":SENS:VOLT:PROT DEF");
+
+                if (HasOutput2)
+                {
+                    WriteString(":SENS2:VOLT:PROT DEF");
+                }
+            }
+            else
+            {
+                WriteString(":SENS:VOLT:PROT " + ovp.ToString(CI));
+
+                if (HasOutput2)
+                {
+                    WriteString(":SENS2:VOLT:PROT " + ovp.ToString(CI));
+                }
+            }
+        }
+
+        public void SetOCP(bool enabled)
+        {
+            WriteString(":OUT:PROT:STAT " + (enabled ? "1" : "0"));
+        }
+
+        public void SetOutputCompensation(OutputCompensationEnum comp)
+        {
+            if (comp == OutputCompensationEnum.HighCap)
+            {
+                WriteString(":OUT:HCAP 1");
+
+                if (HasOutput2)
+                {
+                    WriteString(":OUT2:HCAP 1");
+                }
+            }
+        }
+
+        public void SetCurrentRange(double range) // TODO: Also this should pass the channel? 
+        {
+            WriteString(":SOUR:CURR:RANG:AUTO OFF");
+            WriteString($":SOUR:CURR:RANG {range.ToString(CI)}");
+        }
+
+        public void EnableOutput(OutputEnum channel, bool enabled)
+        {
+            if (enabled)
+            {
+                // HIZ so voltage/current settings are not altered
+                if (channel == OutputEnum.Output_1)
+                {
+                    WriteString(":OUTP ON");
+                }
+                else if (channel == OutputEnum.Output_2)
+                {
+                    WriteString(":OUTP2 ON");
+                }
+                else
+                {
+                    WriteString(":OUTP ON");
+                    WriteString(":OUTP2 ON");
+                }
+            }
+            else
+            {
+                if (channel == OutputEnum.Output_1)
+                {
+                    //WriteString(":OUTP:OFF:MODE HIZ");
+                    WriteString(":OUTP2 OFF");
+                }
+                else if (channel == OutputEnum.Output_2)
+                {
+                    //WriteString(":OUTP2:OFF:MODE HIZ");
+                    WriteString(":OUTP2 OFF");
+                }
+                else
+                {
+                    //WriteString(":OUTP:OFF:MODE HIZ");
+                    //WriteString(":OUTP2:OFF:MODE HIZ");
+                    WriteString(":OUTP OFF");
+                    WriteString(":OUTP2 OFF");
+                }
+            }
+        }
+
+        public static bool SupportsIDN(string idn)
+        {
+            return idn.Contains(",B2961A,") || idn.Contains(",B2962A,") ||
+                   idn.Contains(",B2961B,") || idn.Contains(",B2962B,");
+        }
+
+        public string GetSystemErrorStr()
+        {
+
+            string firstError = Query("SYST:ERR?");
+
+            //
+            // TODO parse all errors not only the first one!
+            //
+            return firstError;
+        }
+
+        public InstrumentState ReadState(bool measureCh2 = true, bool measureDVM = true)
+        {
+            var state = new InstrumentState();
+            var timeStart = DateTime.Now;
+
+            // Setup a measurement to read the curent I/V values.
+            state.OutputEnabled1 = QueryString(":OUTP:STAT?")[0] == "1" ? true : false;
+
+            if (HasOutput2)
+            {
+                state.OutputEnabled2 = QueryString(":OUTP2:STAT?")[0] == "1" ? true : false;
+            }
+
+            // Set sens mode command
+            WriteString(":SENS:FUNC \"CURR\",\"VOLT\"");
+
+            // Set default NPLC and default trigger config.
+            WriteString($":SENS:NPLC 1");
+            WriteString($":SENS2:NPLC 1");
+
+            WriteString(":TRIG:SOUR TIM");
+            WriteString(":TRIG:TIM 46.8e-6");
+            WriteString(":TRIG:COUN 1");
+
+            // Start the trigger for measure.
+            if (HasOutput2)
+            {
+                WriteString(":ARM:ACQ (@1,2)");
+            }
+            else
+            {
+                WriteString(":ARM:ACQ (@1)");
+            }
+
+            if (state.OutputEnabled1)
+            {
+                // Populate the result stete.
+                state.I = QueryDouble(":MEAS:CURR? (@1)")[0];
+                state.V = QueryDouble(":MEAS:VOLT? (@1)")[1];
+            }
+
+            if (HasOutput2)
+            {
+                if (state.OutputEnabled2)
+                {
+                    state.I2 = QueryDouble(":MEAS:CURR? (@2)")[0];
+                    state.V2 = QueryDouble(":MEAS:VOLT? (@2)")[1];
+                }
+            }
+
+            state.DVM = Double.NaN;
+            state.IRange = QueryDouble(":SOUR:CURR:RANG?")[0];
+            state.duration = DateTime.Now.Subtract(timeStart).TotalMilliseconds;
+
+            return state;
+        }
+
+        public ProgramDetails ReadProgramDetails()
+        {
+            var outStateStr = new string[2];
+            if (HasOutput2)
+            {
+                outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
+            }
+            else
+            {
+                outStateStr = QueryString(":OUTP:STAT?;");
+            }
+            
+            var outValue1 = QueryDouble(":SOUR:VOLT?;:SOUR:CURR?");
+            var outValue2 = new double[2];
+            if (HasOutput2)
+            {
+                outValue2 = QueryDouble(":SOUR2:VOLT?;:SOUR2:CURR?");
+            }
+
+            var details = new ProgramDetails()
+            {
+                Enabled1 = (outStateStr[0] == "1"),
+                Enabled2 = HasOutput2 ? (outStateStr[1] == "1") : false,
+                V1 = outValue1[0],
+                I1 = outValue1[1],
+                /*OVPVal = double.Parse(parts[4], CI),*/
+                V2 = HasOutput2 ? outValue2[0] : double.NaN,
+                I2 = HasOutput2 ? outValue2[1] : double.NaN,
+                HasDVM = HasDVM,
+                HasOutput2 = HasOutput2,
+                HasOVP = this.HasOVP,
+                ID = ID
+            };
+
+            var currProtRegBitsStr = QueryString(":STAT:QUES:CURR:COND?")[0];
+            var currProtRegBits = ReadHexString(currProtRegBitsStr);
+            details.OCP = (currProtRegBits & 0x1) != 0 || (currProtRegBits & 0x1) != 0;
+
+            var voltProtRegBitsStr = QueryString(":STAT:QUES:VOLT:COND?")[0];
+            var voltProtRegBits = ReadHexString(voltProtRegBitsStr);
+            details.OVP = (voltProtRegBits & 0x1) != 0 || (voltProtRegBits & 0x1) != 0;
+            details.OVPVal = QueryDouble(":SENS:VOLT:PROT?")[0];
+
+            // Maximums
+            details.I1Ranges = GetCurrentRanges();
+           
+            var outMaxValues = QueryDouble(":SOUR:VOLT? MAX;:SOUR:CURR? MAX");
+            details.MaxV1 = outMaxValues[0];
+            details.MaxI1 = outMaxValues[1];
+           
+            if (HasOutput2)
+            {
+                outMaxValues = QueryDouble(":SOUR2:VOLT? MAX;:SOUR2:CURR? MAX");
+                details.MaxV2 = outMaxValues[0];
+                details.MaxI2 = outMaxValues[1];
+
+            }
+
+            details.I1Range = QueryDouble(":SOUR:CURR:RANGE?")[0];
+
+            /*string detector = Query("SENSE:CURR:DET?").Trim();
+            switch (detector)
+            {
+                case "DC": details.Detector = CurrentDetectorEnum.DC; break;
+                case "ACDC": details.Detector = CurrentDetectorEnum.ACDC; break;
+                default: throw new Exception();
+            }*/
+            details.Detector = CurrentDetectorEnum.DC;
+
+            return details;
+        }
+
+        // LOGGING
+        public void SetupLogging(OutputEnum channel, SenseModeEnum mode, double interval)
+        {
+            int numPoints = 4096;
+            double acqInterval = 15.6e-6;
+
+            string modeString = "";
+            switch (mode)
+            {
+                case SenseModeEnum.CURRENT: modeString = "CURR"; break;
+                case SenseModeEnum.VOLTAGE: modeString = "VOLT"; break;
+                case SenseModeEnum.DVM: modeString = "DVM"; break;
+                default: throw new InvalidOperationException("Unknown transient measurement mode");
+            }
+
+            // double nplc = (interval - 400e-6) * 0.9;
+            double nplc = interval * LineFreq;
+            if (nplc < 4E-4)
+                nplc = 4E-4;
+            else if (nplc > 100)
+                nplc = 100;
+            else if (nplc > 1)
+                nplc = Math.Floor(nplc);
+
+            var channelStr = "";
+            if (HasOutput2)
+            {
+                channelStr = (channel == OutputEnum.Output_1) ? "1" : "2";
+            }
+              
+            WriteString($":SENS:FUNC \"{modeString}\"");
+
+            // 
+            // Setup NPLC
+            //
+            WriteString($":SENS:{modeString}:NPLC {nplc}");
+            WriteString($":SENS:{modeString}:NPLC:AUTO 0");
+
+            //
+            // Setup measure trigger. 
+            //
+            WriteString(":TRIG:SOUR TIM");
+            WriteString($":TRIG:TIM {acqInterval.ToString(CI)}");
+            WriteString($":TRIG:COUN {numPoints.ToString(CI)}");
+            // WriteString(":TRIG:COUN INF");
+
+            // Select the measure to perform.
+            // WriteString($":form:elem:sens {modeString},time");
+            // WriteString(":form asc");
+
+            // Start the measure by trigger it.
+            // WriteString(":init (@1)"); // TODO: Handle channel 2...
+            WriteString($":ARM:ACQ (@{channelStr})");
+
+            LoggingStopwatch = new System.Diagnostics.Stopwatch();
+            LoggingStopwatch.Start();
+            Query("*OPC?");
+        }
+
+        public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum selChannel, SenseModeEnum mode)
+        {
+            var ret = new LoggerDatapoint();
+
+            var channelStr = 1;
+            if (HasOutput2)
+            {
+                channelStr = (selChannel == OutputEnum.Output_1) ? 1 : 2;
+            }
+         
+            // Start the acquisiton
+            switch (mode)
+            {
+                case SenseModeEnum.CURRENT:
+                {
+                    // response = ReadWrite($":fetc:arr:volt? (@{channel})").Trim();
+                    ret.Mean = QueryDouble($":MEAS:CURR? (@{channelStr})")[0];
+
+                    // Do not support MATH op simply.
+                    ret.Min = ret.Max = ret.RMS = ret.Mean;
+                } break;
+
+                case SenseModeEnum.VOLTAGE:
+                {
+                    // response = ReadWrite($":fetc:arr:volt? (@{channel})").Trim();
+                    ret.Mean = QueryDouble($":MEAS:VOLT? (@{channelStr})")[0];
+
+                    // Do not support MATH op simply.
+                    ret.Min = ret.Max = ret.RMS = ret.Mean;
+                } break;
+            }
+
+            ret.t = LoggingStopwatch.Elapsed.TotalSeconds;
+            ret.RecordTime = DateTime.Now;
+
+            return new LoggerDatapoint[] { ret };
+        }
+
+        public bool IsMeasurementFinished()
+        {
+            return (((int.Parse(Query("*ESR?").Trim(), CI) & 1) == 1));
+        }
+        public void AbortMeasurement()
+        {
+            Query("ABORT;*OPC?");
+        }
+
+        // TODO IMPLEMENT        
+        public void StartTransientMeasurement(
+            OutputEnum channel, SenseModeEnum mode, int numPoints = 4096,
+            double interval = 1.56E-05, double level = double.NaN,
+            double hysteresis = 0, int triggerCount = 1,
+            TriggerSlopeEnum triggerEdge = TriggerSlopeEnum.Positive,
+            int triggerOffset = 0,
+            MeasWindowType windowType = MeasWindowType.Null)
+        {
+            Debug.WriteLine("TO IMPLEMENT!");
+        }
+
+        public MeasArray FinishTransientMeasurement(
+            OutputEnum channel,  SenseModeEnum mode, int triggerCount = 1)
+        {
+            Debug.WriteLine("NOT IMPLEMENT!");
+            return new MeasArray();
+        }
+
+        public void ClearProtection()
+        {
+            Debug.WriteLine("ClearProtection: NOT IMPLEMENT!");
+        }
+
+        public void SetDisplayState(DisplayState state)
+        {
+            switch (state)
+            {
+                case DisplayState.ON:
+                    WriteString(":DISP:ENAB ON");
+                    break;
+
+                case DisplayState.OFF:
+                    WriteString(":DISP:ENAB OFF");
+                    break;
+            }
+        }
+
+        public void SetDisplayText(string val, bool clearIt = false)
+        {
+            if (clearIt)
+            {
+                WriteString(":DISP:TEXT:STAT 0");
+            }
+            else
+            {
+                WriteString(":DISP:TEXT:STAT 1");
+            }
+
+            WriteString($":DISP:TEXT:DATA \"{val}\"");
+        }
+
+        // NOT SUPPORTED
+        public void SetCurrentDetector(CurrentDetectorEnum detector)
+        {
+            Console.WriteLine("SetCurrentDetector: Not SUPPORTED!");
+        }
+        public void SetMeasureWindowType(MeasWindowType type)
+        {
+            Debug.WriteLine("SetMeasureWindowType: NOT SUPPORTED!");
+        }
+        #endregion
+    }
+}

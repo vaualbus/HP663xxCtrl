@@ -7,9 +7,12 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Ivi.Visa;
+using System.CodeDom;
+using ZedGraph;
 
 namespace HP663xxCtrl {
     public class InstrumentWorker {
+
         IFastSMU dev = null;
         public string VisaAddress {
            get ; private set;
@@ -25,8 +28,10 @@ namespace HP663xxCtrl {
         public enum StateEnum {
             Disconnected,
             Connected,
-            Measuring
+            Measuring,
+            InitStage
         }
+
         enum CommandEnum {
             IRange,
             Acquire,
@@ -34,12 +39,18 @@ namespace HP663xxCtrl {
             ClearProtection,
             Log,
             SetACDCDetector,
-            DLFirmware
+            DLFirmware,
+            SendTextToDisplay,
+            ClearDisplay,
+            SetDisplayState,
+            SetMeasureWindow
         }
+
         struct Command {
             public CommandEnum cmd;
             public object arg;
         }
+
         public struct AcquireDetails {
             public int NumPoints;
             public double Interval;
@@ -49,34 +60,69 @@ namespace HP663xxCtrl {
             public TriggerSlopeEnum triggerEdge;
             public int SegmentCount;
             public int SampleOffset;
+            public MeasWindowType windowType;
+            public OutputEnum SelectedChannel;
         }
+
+        public struct StateEventData
+        {
+            public StateEnum State;
+            public bool HasTwoMeasureChannels;
+            public bool HasSeprateEnableChannels;
+        }
+
         void RefreshDisplay() {
             var state = dev.ReadState();
             if (NewState != null)
                 NewState(this, state);
         }
+
         public InstrumentWorker(string address) {
             this.VisaAddress = address;
             EventQueue = new BlockingCollection<Command>(new ConcurrentQueue<Command>());
         }
         public event EventHandler WorkerDone;
         public event EventHandler<InstrumentState> NewState;
-        public event EventHandler<StateEnum> StateChanged;
+        public event EventHandler<StateEventData> StateChanged;
         public event EventHandler<ProgramDetails> ProgramDetailsReadback;
         DateTime LastRefresh;
+
+        private bool HasTwoMeasureChannels = false;
+        private bool HasSeprateEnableChannels = false;
+
         public void ThreadMain() {
             // have to open the device to find the ID 
+            
             IMessageBasedSession visaDev = (IMessageBasedSession)GlobalResourceManager.Open(VisaAddress,AccessModes.None, 1000);
             visaDev.Clear();
+
             visaDev.FormattedIO.WriteLine("*IDN?");
             string idn = visaDev.FormattedIO.ReadLine();
             if (K2304.SupportsIDN(idn))
+            {
                 dev = new K2304(visaDev);
+            }
             else if (HP663xx.SupportsIDN(idn))
+            {
                 dev = new HP663xx(visaDev);
+            }
+            else if (B296x.SupportsIDN(idn))
+            {
+                dev = new B296x(visaDev);
+
+                // Copied from example code.
+                visaDev.TerminationCharacter = 10;
+                visaDev.TerminationCharacterEnabled = true;
+                
+                HasTwoMeasureChannels = dev.HasOutput2;
+                HasSeprateEnableChannels = HasTwoMeasureChannels;
+            }
             else
                 throw new Exception("unsupported device");
-            if (StateChanged != null) StateChanged(this, StateEnum.Connected);
+
+            // Send init state 
+
+            if (StateChanged != null) StateChanged(this, new StateEventData { State=StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
             if (ProgramDetailsReadback != null) {
                 ProgramDetails progDetails = dev.ReadProgramDetails();
                 LastProgramDetails = progDetails;
@@ -97,7 +143,8 @@ namespace HP663xxCtrl {
                             DoAcquisition((AcquireDetails)cmd.arg);
                             break;
                         case CommandEnum.Log:
-                            DoLog((SenseModeEnum)((object[])cmd.arg)[0],(double)((object[])cmd.arg)[1]);
+                            var args = (object[]) cmd.arg;
+                            DoLog( (OutputEnum)args[0], (SenseModeEnum)args[1],(double)args[2]);
                             break;
                         case CommandEnum.Program:
                             DoProgram((ProgramDetails)cmd.arg);
@@ -111,6 +158,23 @@ namespace HP663xxCtrl {
                         case CommandEnum.DLFirmware:
                             DoDLFirmware((string)cmd.arg);
                             break;
+
+                        case CommandEnum.SendTextToDisplay:
+                            ((HP663xx)dev).SetDisplayText((string)cmd.arg);
+                             break;
+
+                        case CommandEnum.ClearDisplay:
+                            ((HP663xx)dev).SetDisplayText("", true);
+                            break;
+
+                        case CommandEnum.SetDisplayState:
+                            ((HP663xx)dev).SetDisplayState((DisplayState)cmd.arg);
+                            break;
+
+                        case CommandEnum.SetMeasureWindow:
+                            ((HP663xx)dev).SetMeasureWindowType((MeasWindowType)cmd.arg);
+                            break;
+
                         default:
                             throw new Exception("Unhandled command in InstrumentWorker");
                     }
@@ -124,21 +188,24 @@ namespace HP663xxCtrl {
             } catch {}
             
             dev.Close();
-            if (StateChanged != null) StateChanged(this, StateEnum.Disconnected);
+            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Disconnected, HasTwoMeasureChannels = HasTwoMeasureChannels });
             if(WorkerDone!=null)
                 WorkerDone.Invoke(this,null);
         }
+
         public event EventHandler<MeasArray> DataAcquired;
         void DoSetCurrentRange(double range) {
             dev.SetCurrentRange(range);
             LastProgramDetails.I1Range = range;
         }
+
         public void RequestIRange(double range) {
             EventQueue.Add(new Command() { cmd = CommandEnum.IRange, arg = range });
         }
+
         // Must set StopAcquireRequested to false before starting acquisition
         void DoAcquisition(AcquireDetails arg) {
-            if (StateChanged != null) StateChanged(this, StateEnum.Measuring);
+            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Measuring, HasTwoMeasureChannels = HasTwoMeasureChannels });
 
             int remaining = arg.SegmentCount;
             while (remaining > 0 && !StopRequested && !StopAcquireRequested) {
@@ -147,7 +214,9 @@ namespace HP663xxCtrl {
                     count = 1;
                 else
                     count = Math.Min(remaining, 4096 / arg.NumPoints);
+
                 dev.StartTransientMeasurement(
+                    channel: arg.SelectedChannel,
                     mode: arg.SenseMode,
                     numPoints: arg.NumPoints,
                     interval: arg.Interval,
@@ -155,7 +224,8 @@ namespace HP663xxCtrl {
                     level: arg.Level,
                     hysteresis: arg.TriggerHysteresis,
                     triggerCount: count,
-                    triggerOffset: arg.SampleOffset);
+                    triggerOffset: arg.SampleOffset,
+                    windowType: arg.windowType);
 
                 while (!dev.IsMeasurementFinished() && !StopAcquireRequested
                     && !StopRequested) {
@@ -164,16 +234,16 @@ namespace HP663xxCtrl {
 
                 if (StopAcquireRequested || StopRequested) {
                     dev.AbortMeasurement();
-                    if (StateChanged != null) StateChanged(this, StateEnum.Connected);
+                    if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
                     return;
                 }
-                var data = dev.FinishTransientMeasurement(mode: arg.SenseMode, triggerCount: count);
+                var data = dev.FinishTransientMeasurement(channel: arg.SelectedChannel, mode: arg.SenseMode, triggerCount: count);
 
                 if (DataAcquired != null)
                     DataAcquired(this, data);
                 remaining -= count;
             }
-            if (StateChanged != null) StateChanged(this, StateEnum.Connected);
+            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
         }
         // Must set StopAcquireRequested to false before starting acquisition
         //
@@ -194,27 +264,30 @@ namespace HP663xxCtrl {
             });
             return data;
         }
+        
         public event EventHandler<LoggerDatapoint> LogerDatapointAcquired;
-        void DoLog(SenseModeEnum mode, double interval) {
-            if (StateChanged != null) StateChanged(this, StateEnum.Measuring);
-            dev.SetupLogging(mode, interval);
+        void DoLog(OutputEnum channel, SenseModeEnum mode, double interval) {
+            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Measuring, HasTwoMeasureChannels = HasTwoMeasureChannels });
+            dev.SetupLogging(channel, mode, interval);
 
             while (!StopRequested && !StopAcquireRequested) {
 
                 if (StopAcquireRequested || StopRequested) {
                     dev.AbortMeasurement();
-                    if (StateChanged != null) StateChanged(this, StateEnum.Connected);
+                    if (StateChanged != null) StateChanged(this, new StateEventData { State=StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
                     return;
                 }
-                var data = dev.MeasureLoggingPoint(mode);
+
+                var data = dev.MeasureLoggingPoint(channel, mode);
                 if (LogerDatapointAcquired != null) {
                     foreach(var p in data)
                         LogerDatapointAcquired(this, p);
 
                 }
             }
-            if (StateChanged != null) StateChanged(this, StateEnum.Connected);
+            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
         }
+
         void DoDLFirmware(string filename) {
             try {
                 using (BinaryWriter bw = new BinaryWriter(File.Open(filename, FileMode.Create))) {
@@ -237,29 +310,65 @@ namespace HP663xxCtrl {
             });
         }
 
-        public void RequestLog(SenseModeEnum mode, double interval) {
+        public void RequestLog(OutputEnum channel,  SenseModeEnum mode, double interval) {
             if (StopAcquireRequested == true)
                 return;
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.Log,
-                arg = new object[] {mode,interval}
+                arg = new object[] {channel,mode,interval}
             });
         }
         void DoProgram(ProgramDetails details) {
-            if (!details.Enabled) {
-                dev.EnableOutput(details.Enabled);
+            
+            if (!details.Enabled1) {
+                dev.EnableOutput(OutputEnum.Output_1, details.Enabled1);
+            }
+
+            if (HasSeprateEnableChannels)
+            {
+                if (!details.Enabled2)
+                {
+                    dev.EnableOutput(OutputEnum.Output_2, details.Enabled2);
+                }
+            }
+
+            if (!details.Enabled1 || !details.Enabled2)
+            {
                 dev.SetOCP(details.OCP);
             }
-            if(dev.HasOVP)
-                dev.SetOVP(details.OVP? details.OVPVal:double.NaN);
+
+            if (dev.HasOVP)
+            {
+                dev.SetOVP(details.OVP ? details.OVPVal : double.NaN);
+            }
+
             dev.SetIV(1, details.V1, details.I1);
-            if(details.HasOutput2)
+
+            if (details.HasOutput2)
+            {
                 dev.SetIV(2, details.V2, details.I2);
-            if (details.Enabled) {
-                dev.SetOCP(details.OCP);
-                dev.EnableOutput(details.Enabled);
             }
+
+            if (details.Enabled1 || details.Enabled2)
+            {
+                dev.SetOCP(details.OCP);
+            }
+
+            if (details.Enabled1)
+            {
+                dev.EnableOutput(OutputEnum.Output_1, details.Enabled1);
+            }
+
+            if (HasSeprateEnableChannels)
+            {
+                if (details.Enabled1)
+                {
+                    dev.EnableOutput(OutputEnum.Output_2, details.Enabled2);
+                }
+            }
+
             LastRefresh = DateTime.MinValue;
+            
             // Copy element by element to keep old value of detector, etc....
             LastProgramDetails.V1 = details.V1;
             LastProgramDetails.I1 = details.I1;
@@ -267,7 +376,8 @@ namespace HP663xxCtrl {
             LastProgramDetails.I2 = details.I2;
             LastProgramDetails.OVP = details.OVP;
             LastProgramDetails.OVPVal = details.OVPVal;
-            LastProgramDetails.Enabled = details.Enabled;
+            LastProgramDetails.Enabled1 = details.Enabled1;
+            LastProgramDetails.Enabled2 = details.Enabled2;
             LastProgramDetails.OCP = details.OCP;
         }
 
@@ -277,30 +387,83 @@ namespace HP663xxCtrl {
                 arg = details
             });
         }
+
         void DoDLFirmware() {
 
         }
+
         void DoClearProtection() {
             dev.ClearProtection();
         }
+
         public void RequestClearProtection() {
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.ClearProtection,
                 arg = null
             });
         }
+
         public void RequestShutdown() {
             StopRequested = true;
         }
+
         void DoACDCDetector(CurrentDetectorEnum detector) {
             dev.SetCurrentDetector(detector);
             LastProgramDetails.Detector = detector;
         }
+
         public void RequestACDCDetector(CurrentDetectorEnum detector) {
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.SetACDCDetector,
                 arg = detector
             });
+        }
+
+        public void SendTextToDisplay(string text)
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.SendTextToDisplay,
+                arg = text
+            });
+        }
+
+        public void SetDisplayState(DisplayState state)
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.SetDisplayState,
+                arg = state
+            }) ;
+        }
+
+        public void ClearDisplay()
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.ClearDisplay
+            });
+        }
+
+        public void SetMeasureWindowType(MeasWindowType type)
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.SetMeasureWindow,
+                arg = type
+            });
+        }
+
+        public string GetErrorString()
+        {
+            if (dev != null)
+            {
+                return dev.GetSystemErrorStr();
+            }
+            else
+            {
+                return "";
+            }
         }
     }
 }

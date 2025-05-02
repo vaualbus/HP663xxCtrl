@@ -63,7 +63,7 @@
             <Separator   Grid.Column="3"/>
             <StatusBarItem x:Name="ModelStatusBarItem" Content="-----"  Grid.Column="4"/>
         </StatusBar>
-        <StackPanel DockPanel.Dock="Left">
+        <StackPanel DockPanel.Dock="Left" Width="244">
             <GroupBox Header="Connection" >
                 <StackPanel >
                     <Label Content="Address:" />
@@ -145,7 +145,8 @@
                     <numericInput:DoubleBox x:Name="CH2VTextBox" Grid.Row="2" Grid.Column="1" MinValue="0.0" Value="{Binding V2}" Style="{StaticResource Ch2_Visibility}" />
                     <numericInput:DoubleBox x:Name="CH2ITextBox" Grid.Row="2" Grid.Column="2" MinValue="0.0" Value="{Binding I2}" Style="{StaticResource Ch2_Visibility}"/>
                     <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" >
-                        <CheckBox x:Name="EnableOutputCheckbox" Content="EN  " />
+                        <CheckBox x:Name="EnableOutputCheckbox" Content="EN1  " />
+                        <CheckBox x:Name="Enable2OutputCheckbox" Content="EN2  " IsEnabled="False" />
                         <CheckBox x:Name="OCPCheckbox" Content="OCP" />
                     </StackPanel>
                     <DockPanel Grid.Row="4" Grid.ColumnSpan="3"  Style="{StaticResource OVP_Visibility}">
@@ -173,7 +174,7 @@
                         <RowDefinition/>
                     </Grid.RowDefinitions>
                     <Label Grid.Row="0" Grid.Column="0"  Content="Current Range: " VerticalAlignment="Center"/>
-                    <ComboBox Name="CurrentRangeComboBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"  AllowDrop="True" SelectedIndex="0" SelectionChanged="ComboBox_SelectionChanged" ItemsSource="{Binding I1Ranges}">
+                    <ComboBox Name="CurrentRangeComboBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"  AllowDrop="True" SelectedIndex="1" SelectionChanged="ComboBox_SelectionChanged" ItemsSource="{Binding I1Ranges}">
                     </ComboBox>
 
                     <Label Grid.Row="1" Grid.Column="0"  Content="Current Mode: " VerticalAlignment="Center"/>
@@ -182,10 +183,49 @@
                         <!-- high range only? -->
                         <ComboBoxItem Tag="ACDC" Content="ACDC"/>
                     </ComboBox>
+
+                    <Label Grid.Row="2" Grid.Column="0" Content="Window Type" VerticalAlignment="Center" />
+                    <ComboBox Name="MeasWindowTypeBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" AllowDrop="True" SelectedIndex="0" SelectionChanged="MeasWindowType_SelectionChanged">
+                        <ComboBoxItem Tag="Hanning" Content="Hanning" />
+                        <ComboBoxItem Tag="Rect"    Content="Rect" />
+                    </ComboBox>
+                </Grid>
+            </GroupBox>
+            <GroupBox Header="DisplayControl">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto" />
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock Text="Display Text:"  Grid.Row="0" Grid.Column="0"/>
+                    <TextBox x:Name="DisplayTextToSend" IsEnabled="True" Text="Hello World!" HorizontalAlignment="Left" Width="150" Grid.Row="0" Grid.ColumnSpan="2" Margin="72,0,0,5" />
+                    <Button x:Name="SendText_Btn" Content="Set Text" Grid.Row="1" Grid.ColumnSpan="1" Width="95" HorizontalAlignment="Left" Margin="10,0,0,0" Click="SendText_Btn_Click"/>
+                    <StackPanel Grid.Column="2" Grid.Row="1">
+                        <Button Width="109" x:Name="ClearDisplay_Btn" HorizontalAlignment="Left" Content="Clear" Click="ClearDisplay_Btn_Click"/>
+                        <Button Width="109" x:Name="DisableDisplay_Btn" HorizontalAlignment="Left" Content="Off" Click="DisableDisplay_Btn_Click"/>
+                    </StackPanel>
+                </Grid>
+            </GroupBox>
+            <GroupBox Header="System Status">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="auto"/>
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="ErrorLog" Text="None" Grid.Row="1" Grid.Column="0" Width="auto" Margin="10,0,-222,0" />
+                    <Button x:Name="GetErrors" Content="Get Errors" Grid.Row="0" Grid.Column="0" Width="auto" Margin="10,0,-222,0" Click="GetErrors_Click"/>
                 </Grid>
             </GroupBox>
         </StackPanel>
-        <TabControl TabStripPlacement="Top" DockPanel.Dock="Top" >
+        <TabControl TabStripPlacement="Top" DockPanel.Dock="Top" x:Name="ControlTabs">
             <TabItem x:Name="AcquisitionTabItem" Header="Acquisition">
                 <StackPanel Orientation="Horizontal">
                     <GroupBox Header="Acquisition" >
@@ -199,18 +239,26 @@
                                 <RowDefinition Height="auto"/>
                                 <RowDefinition Height="auto"/>
                                 <RowDefinition Height="auto"/>
+                                <RowDefinition Height="auto"/>
                             </Grid.RowDefinitions>
+                            
                             <StackPanel Grid.ColumnSpan="3" Orientation="Horizontal">
                                 <RadioButton GroupName="AcqSenseMode" x:Name="AcqVoltageRadioButton"  Tag="V" Content="Voltage "/>
                                 <RadioButton GroupName="AcqSenseMode" x:Name="AcqCurrentRadioButton" Tag="I" Content="Current " IsChecked="True"/>
                                 <RadioButton GroupName="AcqSenseMode" x:Name="AcqDVMRadioButton" Tag="DVM" Content="DVM "/>
                             </StackPanel>
-                            <Label x:Name="DurationLabel" Grid.Row="1" Grid.Column="0" Content="Time (s): " VerticalAlignment="Center"/>
-                            <numericInput:DoubleBox x:Name="DurationTextBox" Grid.Row="1" Grid.Column="1" Value="{Binding AcqDuration}" VerticalAlignment="Center" MinValue="0"/>
-                            <Label x:Name="NumPointsLabel" Grid.Row="2" Grid.Column="0"  Content="Num Pts: " VerticalAlignment="Center"/>
-                            <numericInput:IntBox x:Name="NumPtsTextBox" Grid.Row="2" Grid.Column="1" Value="{Binding AcqNumPoints}" VerticalAlignment="Center" MinValue="1" MaxValue="4096"/>
-                            <Label x:Name="NumSegmentsLabel" Grid.Row="3" Grid.Column="0"  Content="Segments: " VerticalAlignment="Center"/>
-                            <numericInput:IntBox x:Name="NumSegmentsTextBox" Grid.Row="3" Grid.Column="1" Value="{Binding AcqSegments}" VerticalAlignment="Center" MinValue="1" />
+
+                            <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Grid.Row="1">
+                                <RadioButton GroupName="AcqChannelSel" Tag="ACQ_SEL_CH_1" Content="CH1  " x:Name="AcqOutChannel1" IsChecked="True"/>
+                                <RadioButton GroupName="AcqChannelSel" Tag="ACQ_SEL_CH_2" Content="CH2  " x:Name="AcqOutChannel2" IsEnabled="False" />
+                            </StackPanel>
+
+                            <Label x:Name="DurationLabel" Grid.Row="2" Grid.Column="0" Content="Time (s): " VerticalAlignment="Center"/>
+                            <numericInput:DoubleBox x:Name="DurationTextBox" Grid.Row="2" Grid.Column="1" Value="{Binding AcqDuration}" VerticalAlignment="Center" MinValue="0"/>
+                            <Label x:Name="NumPointsLabel" Grid.Row="3" Grid.Column="0"  Content="Num Pts: " VerticalAlignment="Center"/>
+                            <numericInput:IntBox x:Name="NumPtsTextBox" Grid.Row="3" Grid.Column="1" Value="{Binding AcqNumPoints}" VerticalAlignment="Center" MinValue="1" MaxValue="4096"/>
+                            <Label x:Name="NumSegmentsLabel" Grid.Row="4" Grid.Column="0"  Content="Segments: " VerticalAlignment="Center"/>
+                            <numericInput:IntBox x:Name="NumSegmentsTextBox" Grid.Row="4" Grid.Column="1" Value="{Binding AcqSegments}" VerticalAlignment="Center" MinValue="1" />
                         </Grid>
                     </GroupBox>
                     <GroupBox Header="Trigger" >
@@ -261,14 +309,22 @@
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="auto"/>
                                 <RowDefinition Height="auto"/>
+                                <RowDefinition Height="auto"/>
                             </Grid.RowDefinitions>
+                            
                             <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal">
                                 <RadioButton GroupName="LogSenseMode" x:Name="LogVoltageRadioButton"  Tag="V" Content="Voltage "/>
                                 <RadioButton GroupName="LogSenseMode" x:Name="LogCurrentRadioButton" Tag="I" Content="Current " IsChecked="True"/>
                                 <RadioButton GroupName="LogSenseMode" x:Name="LogDVMRadioButton" Tag="DVM" Content="DVM "/>
                             </StackPanel>
-                            <Label Grid.Row="1" Grid.Column="0" Content="Interval: "/>
-                            <numericInput:DoubleBox x:Name="LogInterval" MinValue="0" Grid.Row="1" Grid.Column="1"/>
+
+                            <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Grid.Row="1">
+                                <RadioButton GroupName="LogChannelSel" Tag="LOG_SEL_CH_1" Content="CH1  " x:Name="LogOutChannel1" IsChecked="True"/>
+                                <RadioButton GroupName="LogChannelSel" Tag="LOG_SEL_CH_2" Content="CH2  " x:Name="LogOutChannel2" IsEnabled="False" />
+                            </StackPanel>
+
+                            <Label Grid.Row="2" Grid.Column="0" Content="Interval: "/>
+                            <numericInput:DoubleBox x:Name="LogInterval" MinValue="0" Grid.Row="2" Grid.Column="1"/>
                         </Grid>
                     </GroupBox>
                     <GroupBox Header="Display">

@@ -38,6 +38,13 @@ namespace HP663xxCtrl  {
             set { Set(ref _HasChannel2, value); }
         }
 
+        bool _DisplayText = true;
+        public bool DisplayText
+        {
+            get { return _DisplayText; }
+            set { Set(ref _DisplayText, value); }
+        }
+
         private double _OVPLevel = 20;
         public double OVPLevel {
             get { return _OVPLevel; }

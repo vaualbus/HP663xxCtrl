@@ -35,6 +35,28 @@ namespace HP663xxCtrl {
         Negative,
         Either
     }
+
+    public enum OutputEnum
+    {
+        Output_1,
+        Output_2,
+        Output_All,
+        Output_None
+    };
+
+    public enum DisplayState
+    {
+        OFF,
+        ON
+    };
+
+    public enum MeasWindowType
+    {
+        Null,
+        Rect,
+        Hanning
+    };
+
     public struct StatusFlags {
         public bool Calibration,
             WaitingForTrigger,
@@ -49,18 +71,21 @@ namespace HP663xxCtrl {
             OverCurrent2,
             MeasurementOverload;
     }
+
     public struct InstrumentState {
         public StatusFlags Flags;
         public double IRange;
         public double V, I, V2, I2, DVM;
         public double duration;
-        public bool OutputEnabled;
+        public bool OutputEnabled1;
         public bool OutputEnabled2;
         public bool OVP; // Is OVP enabled?
         public bool OCP; // IS OCP enabled?
     }
+
     public struct ProgramDetails {
-        public bool Enabled;
+        public bool Enabled1;
+        public bool Enabled2;
         public bool OCP;// IS OCP enabled?
         public bool OVP; // Is OVP enabled?
         public double OVPVal;
@@ -74,7 +99,9 @@ namespace HP663xxCtrl {
         public double[] I1Ranges;
         public CurrentDetectorEnum Detector;
     }
-    interface IFastSMU {
+
+    interface IFastSMU 
+    {
         bool HasOutput2{get;}
         bool HasDVM { get; }
         bool HasOVP { get; }
@@ -85,19 +112,38 @@ namespace HP663xxCtrl {
         void SetCurrentDetector(CurrentDetectorEnum detector);
         void ClearProtection();
         void SetCurrentRange(double range);
+        
         void SetIV(int channel, double voltage, double current);
+        
         void SetOVP(double ovp);
-        void EnableOutput(bool enabled);
+
+        void EnableOutput(OutputEnum channel, bool enabled);
+
+        void SetDisplayState(DisplayState state);
+
+        void SetDisplayText(string val, bool clearIt = false);
+
+        void SetMeasureWindowType(MeasWindowType type);
+
         InstrumentState ReadState(bool measureCh2 = true, bool measureDVM = true);
-        LoggerDatapoint[] MeasureLoggingPoint(SenseModeEnum mode);
+
         ProgramDetails ReadProgramDetails();
+       
         // Measurements
         void AbortMeasurement();
+
+        string GetSystemErrorStr();
+
         void SetupLogging(
-            SenseModeEnum mode, 
+            OutputEnum channel,
+            SenseModeEnum mode,
             double interval
-            );
+            );     
+        
+        LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode);
+
         void StartTransientMeasurement(
+            OutputEnum channel, 
             SenseModeEnum mode,
             int numPoints = 4096,
             double interval = 15.6e-6,
@@ -105,11 +151,14 @@ namespace HP663xxCtrl {
             double hysteresis = 0.0,
             int triggerCount = 1,
             TriggerSlopeEnum triggerEdge = TriggerSlopeEnum.Positive,
-            int triggerOffset = 0
-            );
+            int triggerOffset = 0,
+            MeasWindowType windowType = MeasWindowType.Null);
+
         MeasArray FinishTransientMeasurement(
+            OutputEnum channel,
             SenseModeEnum mode,
             int triggerCount = 1);
+
         bool IsMeasurementFinished();
     }
 }

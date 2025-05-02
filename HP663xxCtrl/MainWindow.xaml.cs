@@ -1,20 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using ZedGraph;
 
 namespace HP663xxCtrl {
@@ -29,6 +21,8 @@ namespace HP663xxCtrl {
         DateTime LogStartTime;
 
         AcquisitionData AcqDataRecord = null;
+
+        DisplayState DisplayState = DisplayState.ON;
 
         public MainWindow() {
             InitializeComponent();
@@ -91,11 +85,11 @@ namespace HP663xxCtrl {
             {
                 Dispatcher.BeginInvoke((Action)(() => { HandleLogDatapoint(sender2, point); }));
             };
-            VM.InstWorker.StateChanged += delegate(object sender2, InstrumentWorker.StateEnum state)
+            VM.InstWorker.StateChanged += delegate(object sender2, InstrumentWorker.StateEventData eventData)
             {
                 Dispatcher.BeginInvoke((Action)(() =>
                 {
-                    switch (state) {
+                    switch (eventData.State) {
                         case InstrumentWorker.StateEnum.Connected:
                             ConnectionStatusBarItem.Content = "CONNECTED";
                             AcquireButton.IsEnabled = true;
@@ -105,6 +99,21 @@ namespace HP663xxCtrl {
                             LogButton.IsEnabled = true;
                             StopLoggingButton.IsEnabled = false;
                             AddressComboBox.IsEnabled = false;
+
+                            LogOutChannel1.IsChecked = true;
+                            AcqOutChannel1.IsChecked = true;
+
+                            if (eventData.HasTwoMeasureChannels)
+                            {
+                                LogOutChannel2.IsEnabled = true;
+                                AcqOutChannel2.IsEnabled = true;
+                            }
+
+                            if (eventData.HasSeprateEnableChannels)
+                            {
+                                Enable2OutputCheckbox.IsEnabled = true;
+                            }
+
                             // Enable saving, if measurement data is non-null
                             if (AcqDataRecord != null && AcqDataRecord.DataSeries.Count != 0)
                                 SaveAcquireButton.IsEnabled = true;
@@ -130,19 +139,41 @@ namespace HP663xxCtrl {
             VM.InstThread.Name = "Instrument Worker";
             VM.InstThread.Start();
         }
+
         private void DisconnectButton_Click(object sender, RoutedEventArgs e) {
             ConnectionStatusBarItem.Content = "DISCONNECTING";
             VM.InstWorker.RequestShutdown();
         }
+
+        private OutputEnum GetSelectedChannel()
+        {
+            // Decide which tab is clicked
+            var result = OutputEnum.Output_None;
+            if (ControlTabs.SelectedItem.Equals(AcquisitionTabItem))
+            {
+                result = AcqOutChannel1.IsChecked.Value ? OutputEnum.Output_1 : OutputEnum.Output_2;
+            }
+            else if (ControlTabs.SelectedItem.Equals(LoggingTabItem))
+            {
+                result = LogOutChannel1.IsChecked.Value ? OutputEnum.Output_1 : OutputEnum.Output_2;
+            }
+
+            Debug.WriteLine(result);
+
+            return result;
+        }
+
         private void UpdateStateLabels(object sender, InstrumentState state) {
             NumberFormatInfo nfi = (NumberFormatInfo)CultureInfo.CurrentCulture.NumberFormat.Clone();
             nfi.NumberNegativePattern = 1;
             Ch1VLabel.Text = state.V.ToString("N3",nfi).PadLeft(7) + " V";
+            
             if (state.IRange > 1.1) {
                 Ch1ILabel.Text = state.I.ToString("N4", nfi).PadLeft(7) + "  A";
             } else {
                 Ch1ILabel.Text = (state.I * 1000).ToString("N3",nfi).PadLeft(6) + " mA";
             }
+
             Ch1StatusLabel.Text =
                  ((state.Flags.Unregulated) ? "UNR" : "  ") +
                 " " +
@@ -179,6 +210,7 @@ namespace HP663xxCtrl {
 
             DVMVLabel.Text = state.DVM.ToString("N3",nfi);
         }
+
         private void HandleDataAcquired(object sender, MeasArray result) {
             // Add data to the data record, and overwrite the sampling period (it should be the same
             // for all datapoints)
@@ -201,8 +233,8 @@ namespace HP663xxCtrl {
         private void OnMenuItem_Exit(object sender, RoutedEventArgs e) {
             this.Close();
         }
+
         void HandleProgramDetailsReadback(object sender, ProgramDetails details) {
-            EnableOutputCheckbox.IsChecked = details.Enabled;
             OCPCheckbox.IsChecked = details.OCP;
             VM.V1 = details.V1;
             VM.I1 = details.I1;
@@ -211,8 +243,17 @@ namespace HP663xxCtrl {
             VM.HasChannel2 = details.HasOutput2;
             VM.HasDVM = details.HasDVM;
             VM.HasOVP = details.HasOVP;
+
             VM.I1Ranges = details.I1Ranges.Select(x => new Current() { I = x }).ToArray();
-            
+
+
+            EnableOutputCheckbox.IsChecked = details.Enabled1;
+
+            if (Enable2OutputCheckbox.IsEnabled)
+            {
+                Enable2OutputCheckbox.IsChecked = details.Enabled2;
+            }
+
             OVPCheckbox.IsChecked = details.OVP;
             VM.OVPLevel = details.OVPVal;
             var IDSplit = details.ID.Split(new char[] {','});
@@ -230,17 +271,22 @@ namespace HP663xxCtrl {
                  if(details.I1Range ==  ((Current)CurrentRangeComboBox.Items[i]).I)
                      CurrentRangeComboBox.SelectedIndex = i;
             }
+
             switch (details.Detector) {
                 case CurrentDetectorEnum.DC: ACDCDetectorComboBox.SelectedIndex = 0; break;
                 case CurrentDetectorEnum.ACDC: ACDCDetectorComboBox.SelectedIndex = 1; break;
             }
         }
+
         private void ComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e) {
+
             if (VM.InstWorker != null && e.AddedItems.Count > 0) {
                 Current item = (Current)e.AddedItems[0];
                 VM.InstWorker.RequestIRange(item.I);
-                }
             }
+
+        }
+
         void HandleLogDatapoint(object sender, LoggerDatapoint dp) {
             if(!double.IsNaN(dp.Min))
                 zgc.GraphPane.CurveList[0].AddPoint(
@@ -295,13 +341,32 @@ namespace HP663xxCtrl {
                 }
                 double interval = 0;
                 Double.TryParse(LogInterval.Text, out interval);
-                VM.InstWorker.RequestLog(mode, interval);
+                VM.InstWorker.RequestLog(GetSelectedChannel(), mode, interval);
             }
         }
 
         private void StopLoggingButton_Click(object sender, RoutedEventArgs e) {
             StopLoggingButton.IsEnabled = false;
             VM.InstWorker.StopAcquireRequested = true;
+        }
+
+        private MeasWindowType GetMeasWindowType(string itemSter)
+        {
+            MeasWindowType retType;
+            if (itemSter == "Hanning")
+            {
+                retType = MeasWindowType.Hanning;
+            }
+            else if (itemSter == "Rect" )
+            {
+                retType = MeasWindowType.Rect;
+            }
+            else
+            {
+                retType = MeasWindowType.Null;
+            }
+
+            return retType;
         }
 
         private void AcquireButton_Click(object sender, RoutedEventArgs e) {
@@ -352,6 +417,11 @@ namespace HP663xxCtrl {
                     case "EITHER": details.triggerEdge = TriggerSlopeEnum.Either; break;
                     default: throw new Exception();
                 }
+
+                details.windowType = GetMeasWindowType((string)((ComboBoxItem)MeasWindowTypeBox.SelectedItem).Tag);
+
+                details.SelectedChannel = GetSelectedChannel();
+
                 AcqDataRecord = VM.InstWorker.RequestAcquire(details);
             }
         }
@@ -377,7 +447,13 @@ namespace HP663xxCtrl {
                     sw.WriteLine("ID" + sep + "\"" + AcqDataRecord.ProgramDetails.ID + "\"");
 
                     // Program Details
-                    sw.WriteLine("OutputEnabled" + sep + AcqDataRecord.ProgramDetails.Enabled.ToString());
+                    sw.WriteLine("OutputEnabled1" + sep + AcqDataRecord.ProgramDetails.Enabled1.ToString());
+
+                    if (Enable2OutputCheckbox.IsEnabled)
+                    {
+                        sw.WriteLine("OutputEnabled2" + sep + AcqDataRecord.ProgramDetails.Enabled2.ToString());
+                    }
+
                     sw.WriteLine("Detector" + sep + AcqDataRecord.ProgramDetails.Detector.ToString());
                     sw.WriteLine("V1" + sep + AcqDataRecord.ProgramDetails.V1.ToString());
                     sw.WriteLine("I1" + sep + AcqDataRecord.ProgramDetails.I1.ToString());
@@ -434,26 +510,35 @@ namespace HP663xxCtrl {
             if (VM.InstWorker == null)
                 return;
 
-            details.Enabled = EnableOutputCheckbox.IsChecked.Value;
+
             details.OCP = OCPCheckbox.IsChecked.Value;
             details.OVP = OVPCheckbox.IsChecked.Value;
+
+            details.Enabled1 = EnableOutputCheckbox.IsChecked.Value;
+
+            if (Enable2OutputCheckbox.IsEnabled)
+            {
+                details.Enabled2 = Enable2OutputCheckbox.IsChecked.Value;
+            }
 
             if (Validation.GetHasError(CH1VTextBox) || Validation.GetHasError(CH1ITextBox)) {
                 ParseError = ParseError + "Ch 1 Voltage or current is invalid.\n";
             }
+
             details.V1 = VM.V1;
             details.I1 = VM.I1;
 
             if (VM.HasChannel2) {
+
                 if (Validation.GetHasError(CH2VTextBox) || Validation.GetHasError(CH2ITextBox)) {
                     ParseError = ParseError + "Ch 2 Voltage or current is invalid.\n";
                 }
+
                 details.V2 = VM.V2;
                 details.I2 = VM.I2;
                 details.HasOutput2 = true;
             }
             
-
             details.OVPVal = double.NaN;
             if (details.OVP) {
                 if (Validation.GetHasError(OVPLevelTextBox)) {
@@ -466,6 +551,7 @@ namespace HP663xxCtrl {
                 MessageBox.Show(ParseError, "Invalid Data Error", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
             VM.InstWorker.RequestProgram(details);
         }
 
@@ -502,6 +588,69 @@ namespace HP663xxCtrl {
                     case "DC": VM.InstWorker.RequestACDCDetector(CurrentDetectorEnum.DC); break;
                     case "ACDC": VM.InstWorker.RequestACDCDetector(CurrentDetectorEnum.ACDC); break;
                 }
+            }
+        }
+
+        private void MeasWindowType_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (VM != null && VM.InstWorker != null)
+            {
+                switch ((string)((ComboBoxItem)e.AddedItems[0]).Tag)
+                {
+                    case "Rect": VM.InstWorker.SetMeasureWindowType(MeasWindowType.Rect); break;
+                    case "Hanning": VM.InstWorker.SetMeasureWindowType(MeasWindowType.Hanning); break;
+                }
+            }
+        }
+
+        private void SendText_Btn_Click(object sender, RoutedEventArgs e)
+        {
+            if (VM.InstWorker != null)
+            {
+                VM.InstWorker.SendTextToDisplay(DisplayTextToSend.Text);
+            }
+        }
+
+        private void ClearDisplay_Btn_Click(object sender, RoutedEventArgs e)
+        {
+            if (VM.InstWorker != null)
+            {
+                VM.InstWorker.ClearDisplay();
+            }
+        }
+
+        private void DisableDisplay_Btn_Click(object sender, RoutedEventArgs e)
+        {
+            if (VM.InstWorker != null)
+            {
+                //
+                // If we disable the display set the btn text to on.
+                //
+                if (DisplayState == DisplayState.ON)
+                {
+                    DisableDisplay_Btn.Content = "Off";
+                    DisplayState = DisplayState.OFF;
+                }
+                else
+                {
+                    DisableDisplay_Btn.Content = "On";
+                    DisplayState = DisplayState.ON;
+                }
+
+                UpdateLayout();
+
+                VM.InstWorker.SetDisplayState(DisplayState);
+            }
+        }
+
+        private void GetErrors_Click(object sender, RoutedEventArgs e)
+        {
+            if (VM.InstWorker != null)
+            {
+                string errorStr = VM.InstWorker.GetErrorString();
+                ErrorLog.Text = errorStr;
+
+                UpdateLayout();
             }
         }
     }
