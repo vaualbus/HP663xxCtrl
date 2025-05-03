@@ -61,13 +61,14 @@ namespace HP663xxCtrl {
             WaitingForTrigger,
             CV, CV2, CC, CCPositive, CCNegative, CC2;
         // 663xx Questionable
-        public bool OV, OCP,
+        public bool OVP, OCP,
             FP_Local, // frontpanel local was pressed
             OverTemperature,
             OpenSenseLead,
             Unregulated2,
             RemoteInhibit, Unregulated,
-            OverCurrent2,
+            OCP2,
+            OVP2,
             MeasurementOverload;
     }
 

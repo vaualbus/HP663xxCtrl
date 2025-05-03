@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Windows;
 using System.Windows.Media.Animation;
 
 namespace HP663xxCtrl
@@ -48,6 +49,15 @@ namespace HP663xxCtrl
             return Query(cmd).Trim()
                 .Split(new char[] { ',' })
                 .Select(x => double.Parse(x, CI)).ToArray();
+            //return dev.FormattedIO.ReadBinaryBlockOfDouble();
+        }
+
+        int[] QueryInt(string cmd)
+        {
+            //WriteString(cmd);
+            return Query(cmd).Trim()
+                .Split(new char[] { ',' })
+                .Select(x => int.Parse(x, CI)).ToArray();
             //return dev.FormattedIO.ReadBinaryBlockOfDouble();
         }
 
@@ -120,6 +130,29 @@ namespace HP663xxCtrl
             }
 
             return val;
+        }
+
+        private StatusFlags DecodeFlags()
+        {
+            var statusFlags = new StatusFlags();
+
+            var voltStateBit = QueryInt(":STAT:QUES:VOLT:COND?")[0];
+            var currStateBit = QueryInt(":STAT:QUES:CURR:COND?")[0];
+
+            statusFlags.OVP =  voltStateBit == 0x1;
+            statusFlags.OCP  = currStateBit == 0x1;
+            statusFlags.OVP2 = voltStateBit == 0x2;
+            statusFlags.OCP2 = currStateBit == 0x2;
+            statusFlags.Calibration = QueryInt(":STAT:QUES:CAL:COND?")[0] != 0; // Ch1 == Ch2
+            statusFlags.OverTemperature = QueryInt(":STAT:QUES:TEMP:COND?")[0] != 0; // Ch1 == Ch2
+            // flags.WaitingForTrigger = ???
+
+
+            //
+            // TODO: How we handle CC, CV indication?
+            //
+
+            return statusFlags;
         }
 
         #endregion
@@ -378,37 +411,48 @@ namespace HP663xxCtrl
             WriteString($":SENS:NPLC 1");
             WriteString($":SENS2:NPLC 1");
 
+            //
+            // Setup measure triggering.
+            //
             WriteString(":TRIG:SOUR TIM");
             WriteString(":TRIG:TIM 46.8e-6");
             WriteString(":TRIG:COUN 1");
 
-            // Start the trigger for measure.
-            if (HasOutput2)
-            {
-                WriteString(":ARM:ACQ (@1,2)");
-            }
-            else
-            {
-                WriteString(":ARM:ACQ (@1)");
-            }
-
             if (state.OutputEnabled1)
             {
+                // Trigger the acquisition
+                WriteString(":ARM:ACQ (@1)");
+
                 // Populate the result stete.
                 state.I = QueryDouble(":MEAS:CURR? (@1)")[0];
-                state.V = QueryDouble(":MEAS:VOLT? (@1)")[1];
+                state.V = QueryDouble(":MEAS:VOLT? (@1)")[0];
             }
 
-            if (HasOutput2)
+            if (measureCh2 && HasOutput2)
             {
                 if (state.OutputEnabled2)
                 {
+                    // Trigger the acquisition
+                    WriteString(":ARM:ACQ (@2)");
+
                     state.I2 = QueryDouble(":MEAS:CURR? (@2)")[0];
-                    state.V2 = QueryDouble(":MEAS:VOLT? (@2)")[1];
+                    state.V2 = QueryDouble(":MEAS:VOLT? (@2)")[0];
+                }
+                else
+                {
+                    state.V2 = double.NaN;
+                    state.I2 = double.NaN;
                 }
             }
+            else
+            {
+                state.V2 = double.NaN;
+                state.I2 = double.NaN;
+            }
 
+            // TODO: Handle the state.Flasg
             state.DVM = Double.NaN;
+            state.Flags = DecodeFlags();
             state.IRange = QueryDouble(":SOUR:CURR:RANG?")[0];
             state.duration = DateTime.Now.Subtract(timeStart).TotalMilliseconds;
 

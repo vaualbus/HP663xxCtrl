@@ -10,43 +10,45 @@ using Ivi.Visa;
 
 namespace HP663xxCtrl
 {
-    [Flags]
-    public enum OperationStatusEnum
-    {
-        Calibration = 1,
-        WaitingForTrigger = 32,
-        CV = 256,
-        CV2 = 512,
-        CCPositive = 1024,
-        CCNegative = 2048,
-        CC2 = 4096
-    }
-    [Flags]
-    public enum QuestionableStatusEnum
-    {
-        OV = 1,
-        OCP = 2,
-        FP_Local = 8, // frontpanel local was pressed
-        OverTemperature = 16,
-        OpenSenseLead = 32,
-        Unregulated2 = 256,
-        RemoteInhibit = 512,
-        Unregulated = 1024,
-        OverCurrent2 = 4096,
-        MeasurementOverload = 16384
-    }
-    [Flags]
-    public enum StatusByteEnum
-    {
-        QuestionableStatusSummary = 8,
-        MesasgeAvailable = 16,
-        EventSTB = 32,
-        MasterStatusSummary = 64,
-        OperationStatusSummary = 128
-    }
-
     public class HP663xx : IFastSMU
     {
+        [Flags]
+        public enum OperationStatusEnum
+        {
+            Calibration = 1,
+            WaitingForTrigger = 32,
+            CV = 256,
+            CV2 = 512,
+            CCPositive = 1024,
+            CCNegative = 2048,
+            CC2 = 4096
+        }
+
+        [Flags]
+        public enum QuestionableStatusEnum
+        {
+            OV = 1,
+            OCP = 2,
+            FP_Local = 8, // frontpanel local was pressed
+            OverTemperature = 16,
+            OpenSenseLead = 32,
+            Unregulated2 = 256,
+            RemoteInhibit = 512,
+            Unregulated = 1024,
+            OverCurrent2 = 4096,
+            MeasurementOverload = 16384
+        }
+
+        [Flags]
+        public enum StatusByteEnum
+        {
+            QuestionableStatusSummary = 8,
+            MesasgeAvailable = 16,
+            EventSTB = 32,
+            MasterStatusSummary = 64,
+            OperationStatusSummary = 128
+        }
+
         private CultureInfo CI = System.Globalization.CultureInfo.InvariantCulture;
 
         // PRIVATE 
@@ -140,8 +142,8 @@ namespace HP663xxCtrl
             flags.MeasurementOverload = questFlags.HasFlag(QuestionableStatusEnum.MeasurementOverload);
             flags.OCP = questFlags.HasFlag(QuestionableStatusEnum.OCP);
             flags.OpenSenseLead = questFlags.HasFlag(QuestionableStatusEnum.OpenSenseLead);
-            flags.OV = questFlags.HasFlag(QuestionableStatusEnum.OV);
-            flags.OverCurrent2 = questFlags.HasFlag(QuestionableStatusEnum.OverCurrent2);
+            flags.OVP = questFlags.HasFlag(QuestionableStatusEnum.OV);
+            flags.OCP2 = questFlags.HasFlag(QuestionableStatusEnum.OverCurrent2);
             flags.OverTemperature = questFlags.HasFlag(QuestionableStatusEnum.OverTemperature);
             flags.RemoteInhibit = questFlags.HasFlag(QuestionableStatusEnum.RemoteInhibit);
             flags.Unregulated = questFlags.HasFlag(QuestionableStatusEnum.Unregulated);
