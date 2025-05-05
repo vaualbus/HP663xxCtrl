@@ -32,30 +32,66 @@ namespace HP663xxCtrl
             dev.FormattedIO.WriteLine(msg);
         }
 
+        private void CheckIfCommError(string msg)
+        {
+            return; // NO DEBUG
+
+            //
+            // NOTE: Cannot use query otherwise we will call ourself.
+            // need to do this in 'raw' mode.
+            //
+            dev.FormattedIO.WriteLine("SYST:ERR?");
+            string err = dev.FormattedIO.ReadLine().Trim();
+            if (err != "+0,\"No error\"")
+            {
+                Debug.WriteLine($"Command {msg} failed! {err}");
+            }
+        }
+
         private string Query(string cmd)
         {
             WriteString(cmd);
 
-            return ReadString();
+            string res = ReadString();
+
+            // DEBUG
+            CheckIfCommError(cmd);
+
+            return res;
         }
 
         private double[] QueryDouble(string cmd)
         {
-            return Query(cmd).Trim()
+            var res = Query(cmd).Trim()
                 .Split(new char[] { ',', ';' })
                 .Select(x => double.Parse(x, CI)).ToArray();
+
+            // DEBUG
+            CheckIfCommError(cmd);
+
+            return res;
         }
 
         private int[] QueryInt(string cmd)
         {
-            return Query(cmd).Trim()
+            var res = Query(cmd).Trim()
                 .Split(new char[] { ',', ';' })
                 .Select(x => int.Parse(x, CI)).ToArray();
+
+            // DEBUG
+            CheckIfCommError(cmd);
+
+            return res;
         }
 
         private string[] QueryString(string cmd)
         {
-            return Query(cmd).Trim().Split(new char[] { ',', ';' });
+            var res = Query(cmd).Trim().Split(new char[] { ',', ';' });
+
+            // DEBUG
+            CheckIfCommError(cmd);
+
+            return res;
         }
 
         // Reimplemented here versus the IVI library version because I 
@@ -164,16 +200,18 @@ namespace HP663xxCtrl
             dev.Clear();
             dev.TimeoutMilliseconds = 5000;
 
+            //
             // Read device ID
+            //
             ID = Query("*IDN?");
-
-            var IDParts = QueryString("*IDN?");
+            var IDParts = ID.Trim().Split(new char[] { ',', ';' });
             if (IDParts.Length != 4)
             {
                 dev.Dispose();
                 dev = null;
                 throw new InvalidOperationException("Not a known B296x supply!");
             }
+
 
             // Select proper model
             Model = IDParts[1];
@@ -217,8 +255,8 @@ namespace HP663xxCtrl
             WriteString(":DISP:VIEW DUAL");
 
             // Default NPLC set to not auto mode.
-            WriteString($":SENS:NPLC:AUTO 0");
-            WriteString($":SENS2:NPLC:AUTO 0");
+            // WriteString($":SENS:NPLC:AUTO 0");
+            // WriteString($":SENS2:NPLC:AUTO 0");
 
             // Get the current line frequency, used for NPLC settings.
             LineFreq = QueryDouble(":SYST:LFR?")[0];
@@ -322,6 +360,12 @@ namespace HP663xxCtrl
         {
             WriteString(":SOUR:CURR:RANG:AUTO OFF");
             WriteString($":SOUR:CURR:RANG {range.ToString(CI)}");
+
+            if (HasOutput2)
+            {
+                WriteString(":SOUR2:CURR:RANG:AUTO OFF");
+                WriteString($":SOUR2:CURR:RANG {range.ToString(CI)}");
+            }
         }
 
         public void EnableOutput(OutputEnum channel, bool enabled)
@@ -400,8 +444,7 @@ namespace HP663xxCtrl
 
             // Set default NPLC and default trigger config.
             WriteString($":SENS:NPLC 1");
-            WriteString($":SENS2:NPLC 1");
-
+          
             //
             // Setup measure triggering.
             //
@@ -421,6 +464,8 @@ namespace HP663xxCtrl
 
             if (measureCh2 && HasOutput2)
             {
+                WriteString($":SENS2:NPLC 1");
+
                 if (state.OutputEnabled2)
                 {
                     // Trigger the acquisition
@@ -525,7 +570,13 @@ namespace HP663xxCtrl
         public void SetupLogging(OutputEnum channel, SenseModeEnum mode, double interval)
         {
             int numPoints = 4096;
-            double acqInterval = 15.6e-6;
+            double acqInterval = interval;
+            if (interval == 0)
+            {
+                acqInterval = 15.6e-6;
+            }
+
+            var chNum = (channel == OutputEnum.Output_1) ? 1 : 2;
 
             OutputStateBeforeMeasurement = GetOutputState();
 
@@ -560,13 +611,14 @@ namespace HP663xxCtrl
             //
             WriteString($":SENS:{modeString}:NPLC:AUTO 0");
             WriteString($":SENS:{modeString}:NPLC {nplc}");
+            WriteString($":SENS:{modeString}:NPLC {nplc}");
            
             //
             // Setup measure trigger. 
             //
-            WriteString(":TRIG:SOUR TIM");
-            WriteString($":TRIG:TIM {acqInterval.ToString(CI)}");
-            WriteString($":TRIG:COUN {numPoints.ToString(CI)}");
+            WriteString($":TRIG{chNum}:SOUR TIM");
+            WriteString($":TRIG{chNum}:TIM {acqInterval.ToString(CI)}");
+            WriteString($":TRIG{chNum}:COUN {numPoints.ToString(CI)}");
             // WriteString(":TRIG:COUN INF");
 
             // Select the measure to perform.

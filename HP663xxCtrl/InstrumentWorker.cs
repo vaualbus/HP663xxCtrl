@@ -311,7 +311,7 @@ namespace HP663xxCtrl {
         }
         
         public event EventHandler<LoggerDatapoint> LogerDatapointAcquired;
-        void DoLog(OutputEnum channel, SenseModeEnum mode, double interval) {
+        void DoLog(OutputEnum channel, SenseModeEnum mode, double interval=0) {
             if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Measuring, HasTwoMeasureChannels = HasTwoMeasureChannels });
             dev.SetupLogging(channel, mode, interval);
 
@@ -355,7 +355,7 @@ namespace HP663xxCtrl {
             });
         }
 
-        public void RequestLog(OutputEnum channel,  SenseModeEnum mode, double interval) {
+        public void RequestLog(OutputEnum channel,  SenseModeEnum mode, double interval=0) {
             if (StopAcquireRequested == true)
                 return;
             EventQueue.Add(new Command() {

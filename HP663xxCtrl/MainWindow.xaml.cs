@@ -468,8 +468,14 @@ namespace HP663xxCtrl {
                     mode = SenseModeEnum.DVM;
                     zgc.GraphPane.YAxis.Title.Text = "Voltage (V)";
                 }
+
                 double interval = 0;
-                Double.TryParse(LogInterval.Text, out interval);
+                if (false == double.TryParse(LogInterval.Text, out interval))
+                {
+                    // Value is invalid, get default value
+                    interval = 0;
+                }
+                
                 VM.InstWorker.RequestLog(GetSelectedChannel(), mode, interval);
 
                 SelectedLogChannel = selectedChannel;

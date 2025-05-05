@@ -137,7 +137,7 @@ namespace HP663xxCtrl {
         void SetupLogging(
             OutputEnum channel,
             SenseModeEnum mode,
-            double interval
+            double interval=0
             );     
         
         LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode);
