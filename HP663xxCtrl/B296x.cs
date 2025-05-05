@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Media.Animation;
+using static System.Windows.Forms.AxHost;
 
 namespace HP663xxCtrl
 {
@@ -18,7 +19,8 @@ namespace HP663xxCtrl
         private IMessageBasedSession dev;
         private CultureInfo CI = CultureInfo.InvariantCulture;
 
-        Stopwatch LoggingStopwatch;
+        private Stopwatch LoggingStopwatch;
+        private OutputEnum OutputStateBeforeMeasurement;
 
         private string ReadString()
         {
@@ -30,12 +32,6 @@ namespace HP663xxCtrl
             dev.FormattedIO.WriteLine(msg);
         }
 
-        private string ReadWrite(string msg)
-        {
-            WriteString(msg);
-            return ReadString().Trim();
-        }
-
         private string Query(string cmd)
         {
             WriteString(cmd);
@@ -43,27 +39,23 @@ namespace HP663xxCtrl
             return ReadString();
         }
 
-        double[] QueryDouble(string cmd)
+        private double[] QueryDouble(string cmd)
         {
-            //WriteString(cmd);
             return Query(cmd).Trim()
-                .Split(new char[] { ',' })
+                .Split(new char[] { ',', ';' })
                 .Select(x => double.Parse(x, CI)).ToArray();
-            //return dev.FormattedIO.ReadBinaryBlockOfDouble();
         }
 
-        int[] QueryInt(string cmd)
+        private int[] QueryInt(string cmd)
         {
-            //WriteString(cmd);
             return Query(cmd).Trim()
-                .Split(new char[] { ',' })
+                .Split(new char[] { ',', ';' })
                 .Select(x => int.Parse(x, CI)).ToArray();
-            //return dev.FormattedIO.ReadBinaryBlockOfDouble();
         }
 
-        string[] QueryString(string cmd)
+        private string[] QueryString(string cmd)
         {
-            return Query(cmd).Trim().Split(new char[] { ',' });
+            return Query(cmd).Trim().Split(new char[] { ',', ';' });
         }
 
         // Reimplemented here versus the IVI library version because I 
@@ -151,8 +143,26 @@ namespace HP663xxCtrl
             //
             // TODO: How we handle CC, CV indication?
             //
-
             return statusFlags;
+        }
+
+        private OutputEnum GetOutpuState()
+        {
+            OutputEnum result = OutputEnum.Output_None;
+            var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
+
+            // Setup a measurement to read the curent I/V values.
+            if (outStateStr[0] == "1")
+            {
+                result |= OutputEnum.Output_1;
+            }
+
+            if (outStateStr[1] == "1")
+            {
+                result |= OutputEnum.Output_2;
+            }
+
+            return result;
         }
 
         #endregion
@@ -357,7 +367,7 @@ namespace HP663xxCtrl
                 if (channel == OutputEnum.Output_1)
                 {
                     //WriteString(":OUTP:OFF:MODE HIZ");
-                    WriteString(":OUTP2 OFF");
+                    WriteString(":OUTP1 OFF");
                 }
                 else if (channel == OutputEnum.Output_2)
                 {
@@ -471,11 +481,11 @@ namespace HP663xxCtrl
                 outStateStr = QueryString(":OUTP:STAT?;");
             }
             
-            var outValue1 = QueryDouble(":SOUR:VOLT?;:SOUR:CURR?");
+            var outValue1 = QueryDouble(":SOUR:VOLT?; :SOUR:CURR?");
             var outValue2 = new double[2];
             if (HasOutput2)
             {
-                outValue2 = QueryDouble(":SOUR2:VOLT?;:SOUR2:CURR?");
+                outValue2 = QueryDouble(":SOUR2:VOLT?; :SOUR2:CURR?");
             }
 
             var details = new ProgramDetails()
@@ -484,7 +494,7 @@ namespace HP663xxCtrl
                 Enabled2 = HasOutput2 ? (outStateStr[1] == "1") : false,
                 V1 = outValue1[0],
                 I1 = outValue1[1],
-                /*OVPVal = double.Parse(parts[4], CI),*/
+                /* OVPVal = double.Parse(parts[4], CI), */
                 V2 = HasOutput2 ? outValue2[0] : double.NaN,
                 I2 = HasOutput2 ? outValue2[1] : double.NaN,
                 HasDVM = HasDVM,
@@ -514,7 +524,6 @@ namespace HP663xxCtrl
                 outMaxValues = QueryDouble(":SOUR2:VOLT? MAX;:SOUR2:CURR? MAX");
                 details.MaxV2 = outMaxValues[0];
                 details.MaxI2 = outMaxValues[1];
-
             }
 
             details.I1Range = QueryDouble(":SOUR:CURR:RANGE?")[0];
@@ -536,6 +545,8 @@ namespace HP663xxCtrl
         {
             int numPoints = 4096;
             double acqInterval = 15.6e-6;
+
+            OutputStateBeforeMeasurement = GetOutpuState();
 
             string modeString = "";
             switch (mode)
@@ -630,35 +641,40 @@ namespace HP663xxCtrl
 
         public bool IsMeasurementFinished()
         {
-            return (((int.Parse(Query("*ESR?").Trim(), CI) & 1) == 1));
+            return (QueryInt("*ESR?")[0] & 1) == 1;
         }
+
         public void AbortMeasurement()
         {
+            //
+            // Restore the intrument output to the old state.
+            // the instrument automatically turn on the output
+            // when the meas command is triggered. We want to 
+            // return the output state to what it was before any
+            // acquire/logging command was issued
+            //
+            if (OutputStateBeforeMeasurement != OutputEnum.Output_None)
+            {
+                if ((OutputStateBeforeMeasurement & OutputEnum.Output_1) != 0)
+                {
+                    EnableOutput(OutputEnum.Output_1, true);
+                }
+                else
+                {
+                    EnableOutput(OutputEnum.Output_1, false);
+                }
+
+                if ((OutputStateBeforeMeasurement & OutputEnum.Output_2) != 0)
+                {
+                    EnableOutput(OutputEnum.Output_2, true);
+                }
+                else
+                {
+                    EnableOutput(OutputEnum.Output_2, false);
+                }
+            }
+
             Query("ABORT;*OPC?");
-        }
-
-        // TODO IMPLEMENT        
-        public void StartTransientMeasurement(
-            OutputEnum channel, SenseModeEnum mode, int numPoints = 4096,
-            double interval = 1.56E-05, double level = double.NaN,
-            double hysteresis = 0, int triggerCount = 1,
-            TriggerSlopeEnum triggerEdge = TriggerSlopeEnum.Positive,
-            int triggerOffset = 0,
-            MeasWindowType windowType = MeasWindowType.Null)
-        {
-            Debug.WriteLine("TO IMPLEMENT!");
-        }
-
-        public MeasArray FinishTransientMeasurement(
-            OutputEnum channel,  SenseModeEnum mode, int triggerCount = 1)
-        {
-            Debug.WriteLine("NOT IMPLEMENT!");
-            return new MeasArray();
-        }
-
-        public void ClearProtection()
-        {
-            Debug.WriteLine("ClearProtection: NOT IMPLEMENT!");
         }
 
         public void SetDisplayState(DisplayState state)
@@ -689,15 +705,42 @@ namespace HP663xxCtrl
             WriteString($":DISP:TEXT:DATA \"{val}\"");
         }
 
+        // TODO IMPLEMENT        
+        public void StartTransientMeasurement(
+            OutputEnum channel, SenseModeEnum mode, int numPoints = 4096,
+            double interval = 1.56E-05, double level = double.NaN,
+            double hysteresis = 0, int triggerCount = 1,
+            TriggerSlopeEnum triggerEdge = TriggerSlopeEnum.Positive,
+            int triggerOffset = 0,
+            MeasWindowType windowType = MeasWindowType.Null)
+        {
+            Debug.WriteLine("StartTransientMeasurement: NOT IMPLEMENT!");
+
+            OutputStateBeforeMeasurement = GetOutpuState();
+        }
+
+        public MeasArray FinishTransientMeasurement(
+            OutputEnum channel, SenseModeEnum mode, int triggerCount = 1)
+        {
+            Debug.WriteLine("FinishTransientMeasurement: NOT IMPLEMENT!");
+            return new MeasArray();
+        }
+
+        public void ClearProtection()
+        {
+            Debug.WriteLine("ClearProtection: NOT IMPLEMENT!");
+        }
+
         // NOT SUPPORTED
         public void SetCurrentDetector(CurrentDetectorEnum detector)
         {
-            Console.WriteLine("SetCurrentDetector: Not SUPPORTED!");
+            Console.WriteLine("SetCurrentDetector: NOT SUPPORTED!");
         }
         public void SetMeasureWindowType(MeasWindowType type)
         {
             Debug.WriteLine("SetMeasureWindowType: NOT SUPPORTED!");
         }
+
         #endregion
     }
 }

@@ -194,15 +194,15 @@ namespace HP663xxCtrl {
                                 break;
 
                             case CommandEnum.SendTextToDisplay:
-                                ((HP663xx)dev).SetDisplayText((string)cmd.arg);
+                                dev.SetDisplayText((string)cmd.arg);
                                 break;
 
                             case CommandEnum.ClearDisplay:
-                                ((HP663xx)dev).SetDisplayText("", true);
+                                dev.SetDisplayText("", true);
                                 break;
 
                             case CommandEnum.SetDisplayState:
-                                ((HP663xx)dev).SetDisplayState((DisplayState)cmd.arg);
+                                dev.SetDisplayState((DisplayState)cmd.arg);
                                 break;
 
                             case CommandEnum.SetMeasureWindow:
@@ -359,17 +359,17 @@ namespace HP663xxCtrl {
             });
         }
         void DoProgram(ProgramDetails details) {
-            
+
+            //
+            // Disable the output.
+            //
             if (!details.Enabled1) {
-                dev.EnableOutput(OutputEnum.Output_1, details.Enabled1);
+                dev.EnableOutput(OutputEnum.Output_1, false);
             }
 
-            if (HasSeprateEnableChannels)
+            if (!details.Enabled2)
             {
-                if (!details.Enabled2)
-                {
-                    dev.EnableOutput(OutputEnum.Output_2, details.Enabled2);
-                }
+                dev.EnableOutput(OutputEnum.Output_2, false);
             }
 
             if (!details.Enabled1 || !details.Enabled2)
@@ -394,6 +394,9 @@ namespace HP663xxCtrl {
                 dev.SetOCP(details.OCP);
             }
 
+            //
+            // Re-enable the output.
+            //
             if (details.Enabled1)
             {
                 dev.EnableOutput(OutputEnum.Output_1, details.Enabled1);
@@ -401,7 +404,7 @@ namespace HP663xxCtrl {
 
             if (HasSeprateEnableChannels)
             {
-                if (details.Enabled1)
+                if (details.Enabled2)
                 {
                     dev.EnableOutput(OutputEnum.Output_2, details.Enabled2);
                 }
