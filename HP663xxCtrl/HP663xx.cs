@@ -773,12 +773,15 @@ namespace HP663xxCtrl
                     break;
             }
         }
+
         string ReadString() {
             return dev.FormattedIO.ReadLine();
         }
+
         void WriteString(string msg) {
             dev.FormattedIO.WriteLine(msg);
         }
+
         public void Close(bool goToLocal = true)
         {
             if (dev != null ) {
@@ -806,6 +809,10 @@ namespace HP663xxCtrl
             // TODO parse all errors not only the first one!
             //
             return firstError;
+        }
+
+        public void RestoreOutState(OutputEnum slectedChannel)
+        { 
         }
 
         private double[] GetCurrentRanges()

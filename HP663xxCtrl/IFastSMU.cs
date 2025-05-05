@@ -159,6 +159,8 @@ namespace HP663xxCtrl {
             SenseModeEnum mode,
             int triggerCount = 1);
 
+        void RestoreOutState(OutputEnum selectedChannel);
+
         bool IsMeasurementFinished();
     }
 }

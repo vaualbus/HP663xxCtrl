@@ -22,7 +22,7 @@ namespace HP663xxCtrl {
 
         AcquisitionData AcqDataRecord = null;
 
-        DisplayState DisplayState = DisplayState.ON;
+        DisplayState DisplayState = DisplayState.OFF;
 
         public MainWindow() {
             InitializeComponent();
@@ -249,7 +249,11 @@ namespace HP663xxCtrl {
             // Add data to the data record, and overwrite the sampling period (it should be the same
             // for all datapoints)
             AcqDataRecord.SamplingPeriod = result.TimeInterval;
-            AcqDataRecord.DataSeries.AddRange(result.Data);
+            if (result.Data != null)
+            {
+                AcqDataRecord.DataSeries.AddRange(result.Data);
+            }
+
             ZedGraphControl zgc = (ZedGraphControl)ZedGraphHost.Child;
             zgc.GraphPane.XAxis.Title.Text = "Time";
             
@@ -381,6 +385,7 @@ namespace HP663xxCtrl {
 
         private void StopLoggingButton_Click(object sender, RoutedEventArgs e) {
             StopLoggingButton.IsEnabled = false;
+            VM.InstWorker.RequestRestoreOutState(GetSelectedChannel());
             VM.InstWorker.StopAcquireRequested = true;
         }
 
@@ -462,6 +467,7 @@ namespace HP663xxCtrl {
 
         private void StopAcquireButton_Click(object sender, RoutedEventArgs e) {
             StopAcquireButton.IsEnabled = false;
+            VM.InstWorker.RequestRestoreOutState(GetSelectedChannel());
             VM.InstWorker.StopAcquireRequested = true;
         }
         private void SaveAcquireButton_Click(object sender, RoutedEventArgs e) {

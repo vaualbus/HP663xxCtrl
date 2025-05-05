@@ -502,6 +502,10 @@ namespace HP663xxCtrl {
             }
         }
 
+        public void RestoreOutState(OutputEnum slectedChannel)
+        {
+        }
+
         public void SetDisplayState(DisplayState state)
         {
             throw new NotImplementedException();

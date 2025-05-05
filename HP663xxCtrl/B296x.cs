@@ -146,7 +146,7 @@ namespace HP663xxCtrl
             return statusFlags;
         }
 
-        private OutputEnum GetOutpuState()
+        private OutputEnum GetOutputState()
         {
             OutputEnum result = OutputEnum.Output_None;
             var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
@@ -546,7 +546,7 @@ namespace HP663xxCtrl
             int numPoints = 4096;
             double acqInterval = 15.6e-6;
 
-            OutputStateBeforeMeasurement = GetOutpuState();
+            OutputStateBeforeMeasurement = GetOutputState();
 
             string modeString = "";
             switch (mode)
@@ -644,10 +644,12 @@ namespace HP663xxCtrl
             return (QueryInt("*ESR?")[0] & 1) == 1;
         }
 
-        public void AbortMeasurement()
+        public void RestoreOutState(OutputEnum slectedChannel)
         {
+            // TODO: Handle selectedChannel!
+
             //
-            // Restore the intrument output to the old state.
+            // Restore the instrument output to the old state.
             // the instrument automatically turn on the output
             // when the meas command is triggered. We want to 
             // return the output state to what it was before any
@@ -655,25 +657,31 @@ namespace HP663xxCtrl
             //
             if (OutputStateBeforeMeasurement != OutputEnum.Output_None)
             {
-                if ((OutputStateBeforeMeasurement & OutputEnum.Output_1) != 0)
-                {
-                    EnableOutput(OutputEnum.Output_1, true);
-                }
-                else
+                if ((OutputStateBeforeMeasurement & OutputEnum.Output_1) == 0)
                 {
                     EnableOutput(OutputEnum.Output_1, false);
                 }
 
-                if ((OutputStateBeforeMeasurement & OutputEnum.Output_2) != 0)
+                if (HasOutput2)
                 {
-                    EnableOutput(OutputEnum.Output_2, true);
-                }
-                else
-                {
-                    EnableOutput(OutputEnum.Output_2, false);
+                    if ((OutputStateBeforeMeasurement & OutputEnum.Output_2) == 0)
+                    {
+                        EnableOutput(OutputEnum.Output_2, false);
+                    }
                 }
             }
+            else
+            {
+                //
+                // Both channel was disabled so disable them again
+                // 
+                EnableOutput(OutputEnum.Output_1, false);
+                EnableOutput(OutputEnum.Output_2, false);
+            }
+        }
 
+        public void AbortMeasurement()
+        {
             Query("ABORT;*OPC?");
         }
 
@@ -716,7 +724,7 @@ namespace HP663xxCtrl
         {
             Debug.WriteLine("StartTransientMeasurement: NOT IMPLEMENT!");
 
-            OutputStateBeforeMeasurement = GetOutpuState();
+            OutputStateBeforeMeasurement = GetOutputState();
         }
 
         public MeasArray FinishTransientMeasurement(

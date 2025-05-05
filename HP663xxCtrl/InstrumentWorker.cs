@@ -48,7 +48,8 @@ namespace HP663xxCtrl {
             SendTextToDisplay,
             ClearDisplay,
             SetDisplayState,
-            SetMeasureWindow
+            SetMeasureWindow,
+            RestoreOutState
         }
 
         struct Command {
@@ -203,6 +204,10 @@ namespace HP663xxCtrl {
 
                             case CommandEnum.SetDisplayState:
                                 dev.SetDisplayState((DisplayState)cmd.arg);
+                                break;
+
+                            case CommandEnum.RestoreOutState:
+                                // dev.RestoreOutState((OutputEnum)cmd.arg);
                                 break;
 
                             case CommandEnum.SetMeasureWindow:
@@ -448,6 +453,15 @@ namespace HP663xxCtrl {
 
         public void RequestShutdown() {
             StopRequested = true;
+        }
+
+        public void RequestRestoreOutState(OutputEnum selectedChannel)
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.RestoreOutState,
+                arg = selectedChannel
+            });
         }
 
         void DoACDCDetector(CurrentDetectorEnum detector) {
