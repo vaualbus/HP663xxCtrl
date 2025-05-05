@@ -286,6 +286,11 @@ namespace HP663xxCtrl
             return ReadString();
         }
 
+        private string[] QueryString(string cmd)
+        {
+            return Query(cmd).Trim().Split(new char[] { ',', ';' });
+        }
+
         public void ClearErrors()
         {
             string msg;
@@ -809,6 +814,28 @@ namespace HP663xxCtrl
             // TODO parse all errors not only the first one!
             //
             return firstError;
+        }
+
+        public OutputEnum GetOutputState()
+        {
+            OutputEnum result = OutputEnum.Output_None;
+            var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
+
+            // Setup a measurement to read the curent I/V values.
+            if (outStateStr[0] == "1")
+            {
+                result |= OutputEnum.Output_1;
+            }
+
+            if (HasOutput2)
+            {
+                if (outStateStr[1] == "1")
+                {
+                    result |= OutputEnum.Output_2;
+                }
+            }
+
+            return result;
         }
 
         public void RestoreOutState(OutputEnum slectedChannel)

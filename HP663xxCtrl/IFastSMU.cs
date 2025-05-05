@@ -162,5 +162,7 @@ namespace HP663xxCtrl {
         void RestoreOutState(OutputEnum selectedChannel);
 
         bool IsMeasurementFinished();
+
+        OutputEnum GetOutputState();
     }
 }

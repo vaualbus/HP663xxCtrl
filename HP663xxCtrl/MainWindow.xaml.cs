@@ -51,6 +51,74 @@ namespace HP663xxCtrl {
             System.Drawing.Color.Blue, System.Drawing.Color.Green
         };
 
+        private OutputEnum OldOutState;
+        private bool RestoreStateRequired;
+        private OutputEnum SelectedLogChannel;
+        private OutputEnum SelectedAcqChannel;
+
+        private OutputEnum GetOutState()
+        {
+            return VM.InstWorker.GetOutputState();
+        }
+
+        private void RestoreState()
+        {
+            if (OldOutState != OutputEnum.Output_None)
+            {
+                if ((OldOutState & OutputEnum.Output_1) != 0)
+                {
+                    EnableOutputCheckbox.IsChecked = true;
+                }
+
+                if ((OldOutState & OutputEnum.Output_2) != 0)
+                {
+                    EnableOutputCheckbox.IsChecked = true;
+                }
+
+                OldOutState = OutputEnum.Output_None;
+            } 
+
+            //
+            // Restore the last check button item for CH1/CH2 selection
+            //
+            if (ControlTabs.SelectedItem.Equals(AcquisitionTabItem))
+            {
+                if (SelectedAcqChannel != OutputEnum.Output_None)
+                {
+                    if (SelectedAcqChannel == OutputEnum.Output_1)
+                    {
+                        AcqOutChannel1.IsChecked = true;
+                        AcqOutChannel2.IsChecked = false;
+                    }
+                    else
+                    {
+                        AcqOutChannel1.IsChecked = false;
+                        AcqOutChannel2.IsChecked = true;
+                    }
+
+                    SelectedAcqChannel = OutputEnum.Output_None;
+                }
+            }
+            else if (ControlTabs.SelectedItem.Equals(LoggingTabItem))
+            {
+                if (SelectedLogChannel != OutputEnum.Output_None)
+                {
+                    if (SelectedLogChannel == OutputEnum.Output_1)
+                    {
+                        LogOutChannel1.IsChecked = true;
+                        LogOutChannel2.IsChecked = false;
+                    }
+                    else
+                    {
+                        LogOutChannel1.IsChecked = false;
+                        LogOutChannel2.IsChecked = true;
+                    }
+
+                    SelectedLogChannel = OutputEnum.Output_None;
+                }
+            }
+        }
+
         private void GoButton_Click(object sender, RoutedEventArgs e) {
 
             if (VM.InstThread != null || VM.InstWorker != null)
@@ -112,18 +180,33 @@ namespace HP663xxCtrl {
                             StopLoggingButton.IsEnabled = false;
                             AddressComboBox.IsEnabled = false;
 
-                            LogOutChannel1.IsChecked = true;
-                            AcqOutChannel1.IsChecked = true;
-
-                            if (eventData.HasTwoMeasureChannels)
+                            if (RestoreStateRequired)
                             {
-                                LogOutChannel2.IsEnabled = true;
-                                AcqOutChannel2.IsEnabled = true;
+                                //
+                                // We are entering here form a stop button click,
+                                // we do not need to change the enable/disable state of buttons
+                                // but we just need to update their value accordingly.
+                                // NOTE: This can be removed if we not call connect in this situation.
+                                //
+                                RestoreState();
+
+                                RestoreStateRequired = false;
                             }
-
-                            if (eventData.HasSeprateEnableChannels)
+                            else
                             {
-                                Enable2OutputCheckbox.IsEnabled = true;
+                                LogOutChannel1.IsChecked = true;
+                                AcqOutChannel1.IsChecked = true;
+
+                                if (eventData.HasTwoMeasureChannels)
+                                {
+                                    LogOutChannel2.IsEnabled = true;
+                                    AcqOutChannel2.IsEnabled = true;
+                                }
+
+                                if (eventData.HasSeprateEnableChannels)
+                                {
+                                    Enable2OutputCheckbox.IsEnabled = true;
+                                }
                             }
 
                             // Enable saving, if measurement data is non-null
@@ -197,21 +280,25 @@ namespace HP663xxCtrl {
             return result;
         }
 
-        private void UpdateStateLabels(object sender, InstrumentState state) {
+        private void UpdateStateLabels(object sender, InstrumentState state)
+        {
             NumberFormatInfo nfi = (NumberFormatInfo)CultureInfo.CurrentCulture.NumberFormat.Clone();
             nfi.NumberNegativePattern = 1;
-            Ch1VLabel.Text = state.V.ToString("N3",nfi).PadLeft(7) + " V";
-            
-            if (state.IRange > 1.1) {
+            Ch1VLabel.Text = state.V.ToString("N3", nfi).PadLeft(7) + " V";
+
+            if (state.IRange > 1.1)
+            {
                 Ch1ILabel.Text = state.I.ToString("N4", nfi).PadLeft(7) + "  A";
-            } else {
-                Ch1ILabel.Text = (state.I * 1000).ToString("N3",nfi).PadLeft(6) + " mA";
+            }
+            else
+            {
+                Ch1ILabel.Text = (state.I * 1000).ToString("N3", nfi).PadLeft(6) + " mA";
             }
 
             Ch1StatusLabel.Text =
                  ((state.Flags.Unregulated) ? "UNR" : "  ") +
                 " " +
-                (state.OVP? "OVP" : "   ") +
+                (state.OVP ? "OVP" : "   ") +
                 " " +
                 (state.OCP ? "OCP" : "   ") +
                 " " +
@@ -224,10 +311,13 @@ namespace HP663xxCtrl {
                     )
                     )
                 );
-            if (!double.IsNaN(state.V2)) {
+            if (!double.IsNaN(state.V2))
+            {
                 Ch2VLabel.Text = state.V2.ToString("N3", nfi).PadLeft(7) + " V";
                 Ch2ILabel.Text = state.I2.ToString("N4", nfi).PadLeft(6) + "  A"; // Always in amps
-            } else {
+            }
+            else
+            {
                 Ch2VLabel.Text = "--.---" + " -";
                 Ch2ILabel.Text = "--.----" + "  -";
             }
@@ -242,7 +332,7 @@ namespace HP663xxCtrl {
                 " " +
                 (state.Flags.CC2 ? "CC " : "   ");
 
-            DVMVLabel.Text = state.DVM.ToString("N3",nfi);
+            DVMVLabel.Text = state.DVM.ToString("N3", nfi);
         }
 
         private void HandleDataAcquired(object sender, MeasArray result) {
@@ -347,6 +437,7 @@ namespace HP663xxCtrl {
         }
         private void LogButton_Click(object sender, RoutedEventArgs e) {
 
+            var selectedChannel = GetSelectedChannel();
             if (VM.InstWorker != null) {
                 LogStartTime = DateTime.Now;
                 VM.InstWorker.StopAcquireRequested = false;
@@ -380,6 +471,9 @@ namespace HP663xxCtrl {
                 double interval = 0;
                 Double.TryParse(LogInterval.Text, out interval);
                 VM.InstWorker.RequestLog(GetSelectedChannel(), mode, interval);
+
+                SelectedLogChannel = selectedChannel;
+                OldOutState = GetOutState();
             }
         }
 
@@ -387,6 +481,7 @@ namespace HP663xxCtrl {
             StopLoggingButton.IsEnabled = false;
             VM.InstWorker.RequestRestoreOutState(GetSelectedChannel());
             VM.InstWorker.StopAcquireRequested = true;
+            RestoreStateRequired = true;
         }
 
         private MeasWindowType GetMeasWindowType(string itemSter)
@@ -410,6 +505,7 @@ namespace HP663xxCtrl {
 
         private void AcquireButton_Click(object sender, RoutedEventArgs e) {
 
+            var selectedChannel = GetSelectedChannel();
             if (VM.InstWorker != null) {
                 var errors = GetTreeErrors(AcquisitionTabItem);
 
@@ -462,6 +558,9 @@ namespace HP663xxCtrl {
                 details.SelectedChannel = GetSelectedChannel();
 
                 AcqDataRecord = VM.InstWorker.RequestAcquire(details);
+                
+                SelectedAcqChannel = selectedChannel;
+                OldOutState = GetOutState();
             }
         }
 
@@ -469,6 +568,8 @@ namespace HP663xxCtrl {
             StopAcquireButton.IsEnabled = false;
             VM.InstWorker.RequestRestoreOutState(GetSelectedChannel());
             VM.InstWorker.StopAcquireRequested = true;
+
+            RestoreStateRequired = true;
         }
         private void SaveAcquireButton_Click(object sender, RoutedEventArgs e) {
             Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog();

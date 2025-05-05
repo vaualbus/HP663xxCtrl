@@ -146,25 +146,6 @@ namespace HP663xxCtrl
             return statusFlags;
         }
 
-        private OutputEnum GetOutputState()
-        {
-            OutputEnum result = OutputEnum.Output_None;
-            var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
-
-            // Setup a measurement to read the curent I/V values.
-            if (outStateStr[0] == "1")
-            {
-                result |= OutputEnum.Output_1;
-            }
-
-            if (outStateStr[1] == "1")
-            {
-                result |= OutputEnum.Output_2;
-            }
-
-            return result;
-        }
-
         #endregion
 
         #region Public Methods and fields
@@ -577,9 +558,9 @@ namespace HP663xxCtrl
             // 
             // Setup NPLC
             //
-            WriteString($":SENS:{modeString}:NPLC {nplc}");
             WriteString($":SENS:{modeString}:NPLC:AUTO 0");
-
+            WriteString($":SENS:{modeString}:NPLC {nplc}");
+           
             //
             // Setup measure trigger. 
             //
@@ -711,6 +692,25 @@ namespace HP663xxCtrl
             }
 
             WriteString($":DISP:TEXT:DATA \"{val}\"");
+        }
+
+        public OutputEnum GetOutputState()
+        {
+            OutputEnum result = OutputEnum.Output_None;
+            var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
+
+            // Setup a measurement to read the curent I/V values.
+            if (outStateStr[0] == "1")
+            {
+                result |= OutputEnum.Output_1;
+            }
+
+            if (outStateStr[1] == "1")
+            {
+                result |= OutputEnum.Output_2;
+            }
+
+            return result;
         }
 
         // TODO IMPLEMENT        

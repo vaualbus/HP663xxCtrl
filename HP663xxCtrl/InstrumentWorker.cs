@@ -207,7 +207,7 @@ namespace HP663xxCtrl {
                                 break;
 
                             case CommandEnum.RestoreOutState:
-                                // dev.RestoreOutState((OutputEnum)cmd.arg);
+                                dev.RestoreOutState((OutputEnum)cmd.arg);
                                 break;
 
                             case CommandEnum.SetMeasureWindow:
@@ -462,6 +462,12 @@ namespace HP663xxCtrl {
                 cmd = CommandEnum.RestoreOutState,
                 arg = selectedChannel
             });
+
+            //
+            // Refresh the display labels so we see which channel is 
+            // enabled.
+            //
+            RefreshDisplay();
         }
 
         void DoACDCDetector(CurrentDetectorEnum detector) {
@@ -509,6 +515,17 @@ namespace HP663xxCtrl {
                 cmd = CommandEnum.SetMeasureWindow,
                 arg = type
             });
+        }
+
+        public OutputEnum GetOutputState()
+        {
+            OutputEnum result = OutputEnum.Output_None;
+            if (dev != null)
+            {
+                result = dev.GetOutputState();
+            }
+
+            return result;
         }
 
         public string GetErrorString()
