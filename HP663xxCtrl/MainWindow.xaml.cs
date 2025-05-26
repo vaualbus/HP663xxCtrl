@@ -21,6 +21,7 @@ namespace HP663xxCtrl {
         DateTime LogStartTime;
 
         AcquisitionData AcqDataRecord = null;
+        AcquisitionData LogDataRecord = null;
 
         DisplayState DisplayState = DisplayState.OFF;
 
@@ -212,6 +213,8 @@ namespace HP663xxCtrl {
                             // Enable saving, if measurement data is non-null
                             if (AcqDataRecord != null && AcqDataRecord.DataSeries.Count != 0)
                                 SaveAcquireButton.IsEnabled = true;
+                            /*if (LogDataRecord != null && LogDataRecord.DataSeries.Count != 0)
+                                SaveLogDataButton.IsEnabled = true;*/
                             break;
                         case InstrumentWorker.StateEnum.ConnectionFailed:
                             //
@@ -416,7 +419,14 @@ namespace HP663xxCtrl {
         }
 
         void HandleLogDatapoint(object sender, LoggerDatapoint dp) {
-            if(!double.IsNaN(dp.Min))
+
+            // Add data to the data record, and overwrite the sampling period (it should be the same
+            // for all datapoints)
+            // AcqDataRecord.SamplingPeriod = dp.RecordTime;
+            //var pointData = new double[] { dp.Mean, dp.Min, dp.Max };
+            //AcqDataRecord.DataSeries.AddRange(pointData.S);
+
+            if (!double.IsNaN(dp.Min))
                 zgc.GraphPane.CurveList[0].AddPoint(
                     dp.t,
                     dp.Min);

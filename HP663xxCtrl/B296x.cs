@@ -4,20 +4,26 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.Remoting.Channels;
 using System.Windows;
 using System.Windows.Media.Animation;
+using ZedGraph;
 using static System.Windows.Forms.AxHost;
 
 namespace HP663xxCtrl
 {
     internal class B296x : IFastSMU
     {
+        const int NUM_OF_TRACE_DATA_POINTS = 1024;
+
         #region Private Methods
         private string ID;
         private string Model;
         private double LineFreq;
         private IMessageBasedSession dev;
         private CultureInfo CI = CultureInfo.InvariantCulture;
+
+        private bool UseTraceBuffer => false;
 
         private Stopwatch LoggingStopwatch;
         private OutputEnum OutputStateBeforeMeasurement;
@@ -295,25 +301,18 @@ namespace HP663xxCtrl
             }
         }
 
-        public void SetIV(int channel, double voltage, double current)
+        public void SetIV(int chNum, double voltage, double current)
         {
             // Set output mode, no wave form, fixed value.
             WriteString(":SOUR:VOLT:MODE FIX");
 
-            // Set the current/voltage to the channel.
+            //
+            // TODO: Detect if we want CC or CV, than
+            // If we awant CC than SOURC:CURR x; SENS:VOLT:PROT y!
+            //
             WriteString(":SOUR:FUNC:MODE VOLT");
-
-            if (channel == 1)
-            {
-                WriteString($":SOUR:CURR {current.ToString(CI)}");
-                WriteString($":SOUR:VOLT {voltage.ToString(CI)}");
-            }
-            else
-            {
-                WriteString($":SOUR2:CURR {current.ToString(CI)}");
-                WriteString($":SOUR2:VOLT {voltage.ToString(CI)}");
-            }
-
+            WriteString($":SENS{chNum}:CURR:PROT {current.ToString(CI)}");
+            WriteString($":SOUR{chNum}:VOLT {voltage.ToString(CI)}");
         }
 
         public void SetOVP(double ovp)
@@ -370,7 +369,7 @@ namespace HP663xxCtrl
 
         public void EnableOutput(OutputEnum channel, bool enabled)
         {
-            if (enabled)
+           if (enabled)
             {
                 // HIZ so voltage/current settings are not altered
                 if (channel == OutputEnum.Output_1)
@@ -597,13 +596,7 @@ namespace HP663xxCtrl
                 nplc = 100;
             else if (nplc > 1)
                 nplc = Math.Floor(nplc);
-
-            var channelStr = "";
-            if (HasOutput2)
-            {
-                channelStr = (channel == OutputEnum.Output_1) ? "1" : "2";
-            }
-              
+                          
             WriteString($":SENS:FUNC \"{modeString}\"");
 
             // 
@@ -613,21 +606,40 @@ namespace HP663xxCtrl
             WriteString($":SENS:{modeString}:NPLC {nplc}");
             WriteString($":SENS:{modeString}:NPLC {nplc}");
            
-            //
-            // Setup measure trigger. 
-            //
-            WriteString($":TRIG{chNum}:SOUR TIM");
-            WriteString($":TRIG{chNum}:TIM {acqInterval.ToString(CI)}");
-            WriteString($":TRIG{chNum}:COUN {numPoints.ToString(CI)}");
+
             // WriteString(":TRIG:COUN INF");
 
-            // Select the measure to perform.
-            // WriteString($":form:elem:sens {modeString},time");
-            // WriteString(":form asc");
+            if (UseTraceBuffer)
+            {
+                numPoints = NUM_OF_TRACE_DATA_POINTS;
 
-            // Start the measure by trigger it.
-            // WriteString(":init (@1)"); // TODO: Handle channel 2...
-            WriteString($":ARM:ACQ (@{channelStr})");
+                // Select the measure to perform.
+                WriteString($":form:elem:sens {modeString},time");
+
+                // Lock writing to the buffer, so we can reset it.
+                WriteString($":TRAC{chNum}:FEED:CONT NEV");
+                // Clear all buffer value before starting
+                WriteString($":TRAC{chNum}:CLE");
+                // COnfig the number of samples to acquire
+                WriteString($":TRAC{chNum}:POINts {numPoints}");
+                // Select the data to be used.
+                WriteString(":TRAC:FEED SENS");
+                // Enable writes to the buffer
+                WriteString(":TRAC:FEED:CONT NEXT");
+            }
+            else
+            {
+                //
+                // Setup measure trigger. 
+                //
+                WriteString($":TRIG{chNum}:SOUR TIM");
+                WriteString($":TRIG{chNum}:TIM {acqInterval}");
+                WriteString($":TRIG{chNum}:COUN {numPoints}");
+
+                // Start the measure by trigger it.
+                // WriteString(":init (@1)"); // TODO: Handle channel 2...
+                WriteString($":ARM:ACQ (@{chNum})");
+            }
 
             LoggingStopwatch = new System.Diagnostics.Stopwatch();
             LoggingStopwatch.Start();
@@ -637,33 +649,52 @@ namespace HP663xxCtrl
         public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum selChannel, SenseModeEnum mode)
         {
             var ret = new LoggerDatapoint();
+            var chNum = (selChannel == OutputEnum.Output_1) ? 1 : 2;
 
-            var channelStr = 1;
-            if (HasOutput2)
+            if (UseTraceBuffer)
             {
-                channelStr = (selChannel == OutputEnum.Output_1) ? 1 : 2;
+                var numOfPoints = QueryInt($":TRAC{chNum}:POINts:ACTual?")[0];
+
+                // Only process data when the buffer is full.
+                if (numOfPoints == NUM_OF_TRACE_DATA_POINTS)
+                {
+                    // Read all data.
+                    WriteString(":TRAC:DATA?");
+                    for (int idx = 0; idx < numOfPoints; ++idx)
+                    {
+                        var lineStr = dev.RawIO.ReadString();
+                        Debug.WriteLine(lineStr);
+                    }
+
+                    // Disable the tracebuff until next start action
+                    WriteString($":TRAC{chNum}:FEED:CONT NEV");
+                }
             }
-         
-            // Start the acquisiton
-            switch (mode)
+            else
             {
-                case SenseModeEnum.CURRENT:
+                // Start the acquisiton
+                switch (mode)
                 {
-                    // response = ReadWrite($":fetc:arr:volt? (@{channel})").Trim();
-                    ret.Mean = QueryDouble($":MEAS:CURR? (@{channelStr})")[0];
+                    case SenseModeEnum.CURRENT:
+                        {
+                            // response = ReadWrite($":fetc:arr:volt? (@{channel})").Trim();
+                            ret.Mean = QueryDouble($":MEAS:CURR? (@{chNum})")[0];
 
-                    // Do not support MATH op simply.
-                    ret.Min = ret.Max = ret.RMS = ret.Mean;
-                } break;
+                            // Do not support MATH op simply.
+                            ret.Min = ret.Max = ret.RMS = ret.Mean;
+                        }
+                        break;
 
-                case SenseModeEnum.VOLTAGE:
-                {
-                    // response = ReadWrite($":fetc:arr:volt? (@{channel})").Trim();
-                    ret.Mean = QueryDouble($":MEAS:VOLT? (@{channelStr})")[0];
+                    case SenseModeEnum.VOLTAGE:
+                        {
+                            // response = ReadWrite($":fetc:arr:volt? (@{channel})").Trim();
+                            ret.Mean = QueryDouble($":MEAS:VOLT? (@{chNum})")[0];
 
-                    // Do not support MATH op simply.
-                    ret.Min = ret.Max = ret.RMS = ret.Mean;
-                } break;
+                            // Do not support MATH op simply.
+                            ret.Min = ret.Max = ret.RMS = ret.Mean;
+                        }
+                        break;
+                }
             }
 
             ret.t = LoggingStopwatch.Elapsed.TotalSeconds;
