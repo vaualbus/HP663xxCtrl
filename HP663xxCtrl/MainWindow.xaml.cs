@@ -21,6 +21,7 @@ namespace HP663xxCtrl {
         DateTime LogStartTime;
 
         AcquisitionData AcqDataRecord = null;
+        AcquisitionData LogDataRecord = null;
 
         DisplayState DisplayState = DisplayState.OFF;
 
@@ -212,6 +213,8 @@ namespace HP663xxCtrl {
                             // Enable saving, if measurement data is non-null
                             if (AcqDataRecord != null && AcqDataRecord.DataSeries.Count != 0)
                                 SaveAcquireButton.IsEnabled = true;
+                            if (LogDataRecord != null && LogDataRecord.DataSeries.Count != 0)
+                                SaveLogDataButton.IsEnabled = true;
                             break;
                         case InstrumentWorker.StateEnum.ConnectionFailed:
                             //
@@ -226,6 +229,7 @@ namespace HP663xxCtrl {
                             StopAcquireButton.IsEnabled = false;
                             ClearProtectionButton.IsEnabled = false;
                             LogButton.IsEnabled = false;
+                            SaveLogDataButton.IsEnabled = false;
                             ModelStatusBarItem.Content = "-----";
                             AddressComboBox.IsEnabled = true;
                             ConnectButton.IsEnabled = true;
@@ -240,6 +244,7 @@ namespace HP663xxCtrl {
                             StopAcquireButton.IsEnabled = false;
                             ClearProtectionButton.IsEnabled = false;
                             LogButton.IsEnabled = false;
+                            SaveLogDataButton.IsEnabled = false;
                             ModelStatusBarItem.Content = "-----";
                             AddressComboBox.IsEnabled = true;
                             VM.InstWorker.InstrumentIsConnected = false;
@@ -416,7 +421,14 @@ namespace HP663xxCtrl {
         }
 
         void HandleLogDatapoint(object sender, LoggerDatapoint dp) {
-            if(!double.IsNaN(dp.Min))
+
+            // Add data to the data record, and overwrite the sampling period (it should be the same
+            // for all datapoints)
+            // AcqDataRecord.SamplingPeriod = dp.RecordTime;
+            //var pointData = new double[] { dp.Mean, dp.Min, dp.Max };
+            //AcqDataRecord.DataSeries.AddRange(pointData.S);
+
+            if (!double.IsNaN(dp.Min))
                 zgc.GraphPane.CurveList[0].AddPoint(
                     dp.t,
                     dp.Min);
@@ -445,6 +457,8 @@ namespace HP663xxCtrl {
                 ApplyProgramButton.IsEnabled = false;
                 ClearProtectionButton.IsEnabled = false;
                 StopLoggingButton.IsEnabled = true;
+                SaveLogDataButton.IsEnabled = false;
+
                 zgc.GraphPane.CurveList.Clear();
                 zgc.GraphPane.AddCurve("Min", new double[0], new double[0], System.Drawing.Color.Blue);
                 zgc.GraphPane.AddCurve("Mean", new double[0], new double[0], System.Drawing.Color.Black);
@@ -488,6 +502,7 @@ namespace HP663xxCtrl {
             VM.InstWorker.RequestRestoreOutState(GetSelectedChannel());
             VM.InstWorker.StopAcquireRequested = true;
             RestoreStateRequired = true;
+            SaveLogDataButton.IsEnabled = true;
         }
 
         private MeasWindowType GetMeasWindowType(string itemSter)
@@ -577,6 +592,38 @@ namespace HP663xxCtrl {
 
             RestoreStateRequired = true;
         }
+
+        private void SaveLogDataButton_Click(object sender, RoutedEventArgs e)
+        {
+            Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog();
+            sfd.DefaultExt = ".csv";
+            sfd.Filter = "CSV file (.csv)|*.csv|All Files (*.*)|*.*"; // Filter files by extension
+            if (sfd.ShowDialog(this) != true)
+            {
+                return;
+            }
+
+            try
+            {
+                using (StreamWriter sw = new StreamWriter(sfd.FileName))
+                {
+                    var meanPoints = zgc.GraphPane.CurveList[1].Points;
+                    string sep = CultureInfo.CurrentCulture.TextInfo.ListSeparator;
+
+                    for (int i = 0; i < meanPoints.Count; i++)
+                    {
+                        sw.Write(meanPoints[i].X.ToString() + sep);
+                        sw.WriteLine(String.Join(sep, meanPoints[i].Y));
+                    }
+                }
+            } catch (IOException ioex) {
+                
+                MessageBox.Show(this, "IO Exception during write",
+                    "IO Exception happened during write (Abort, retry, fail?):\n\n" +
+                    ioex.Message);
+            }
+        }
+
         private void SaveAcquireButton_Click(object sender, RoutedEventArgs e) {
             Microsoft.Win32.SaveFileDialog sfd = new Microsoft.Win32.SaveFileDialog();
             sfd.DefaultExt = ".csv";

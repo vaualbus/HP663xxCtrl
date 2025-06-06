@@ -427,6 +427,7 @@ namespace HP663xxCtrl
                     var a = retList.ToArray();
                     for (int i = 0; i < a.Length; i++)
                         a[i].Max = deltaDuration;
+
                     return a;
                 } 
                 catch (Exception ex)
@@ -435,6 +436,7 @@ namespace HP663xxCtrl
                     return new LoggerDatapoint[] { }; 
                 }
             }
+
             switch(mode) {
                 case SenseModeEnum.CURRENT:
                     rsp = Query("MEAS:CURR?;:FETCH:CURR:MIN?;MAX?;ACDC?").Trim();
@@ -458,6 +460,7 @@ namespace HP663xxCtrl
                     ret.Mean = double.Parse(parts[0], CI);
                     break;
             }
+
             ret.t = LoggingStopwatch.Elapsed.TotalSeconds;
             ret.RecordTime = DateTime.Now;
             return new LoggerDatapoint[] {ret};
@@ -479,9 +482,11 @@ namespace HP663xxCtrl
             if (triggerCount * numPoints > 4096) {
                 throw new InvalidOperationException();
             }
+
             string modeString;
             if (mode == SenseModeEnum.DVM && !HasDVM)
                 throw new Exception();
+
             switch (mode)
             {
                 case SenseModeEnum.CURRENT: modeString = "CURR"; break;
@@ -551,7 +556,8 @@ namespace HP663xxCtrl
             dev.ReadString(); // read the +1 from *OPC?*/
 
             MeasArray res = new MeasArray();
-            bool isArrayFetched = true;
+
+            bool isNormalMeasureFetched = false;
             switch (mode)
             {
                 case SenseModeEnum.VOLTAGE:
@@ -563,7 +569,7 @@ namespace HP663xxCtrl
                     break;
 
                 case SenseModeEnum.DVM:
-                    isArrayFetched = false;
+                    isNormalMeasureFetched = true;
                     break;
 
                 default:
@@ -571,19 +577,11 @@ namespace HP663xxCtrl
             }
 
             float[] data = null;
-            if (isArrayFetched)
-            {
-
-                data = dev.FormattedIO.ReadBinaryBlockOfSingle();
-                res.Mode = mode;
-                res.Data = new double[triggerCount][];
-
-            }
-            else
+            if (isNormalMeasureFetched)
             {
                 int sampleCount = 128;
                 data = new float[sampleCount];
-                
+
                 res.Mode = SenseModeEnum.DVM;
                 res.Data = new double[triggerCount][];
 
@@ -592,6 +590,12 @@ namespace HP663xxCtrl
                     WriteString("FETCH:DVM:ACDC?");
                     data[i] = (float)dev.FormattedIO.ReadDouble();
                 }
+            }
+            else
+            { 
+                data = dev.FormattedIO.ReadBinaryBlockOfSingle();
+                res.Mode = mode;
+                res.Data = new double[triggerCount][];
             }
 
             int numPoints = data.Length / triggerCount;
