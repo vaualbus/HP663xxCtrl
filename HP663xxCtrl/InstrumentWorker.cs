@@ -331,7 +331,8 @@ namespace HP663xxCtrl {
 
                 }
             }
-            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
+            if (StateChanged != null) 
+                StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
         }
 
         void DoDLFirmware(string filename) {

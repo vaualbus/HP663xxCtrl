@@ -347,6 +347,7 @@
                     <StackPanel>
                         <Button x:Name="LogButton" Content="Start Logging" Click="LogButton_Click" IsEnabled="False"/>
                         <Button x:Name="StopLoggingButton" Content="Stop" Click="StopLoggingButton_Click" IsEnabled="False"/>
+                        <Button x:Name="SaveLogDataButton" Content="Save" Click="SaveLogDataButton_Click" IsEnabled="False"/>
                     </StackPanel>
                 </StackPanel>
             </TabItem>

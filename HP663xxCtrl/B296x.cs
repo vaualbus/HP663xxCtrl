@@ -40,8 +40,7 @@ namespace HP663xxCtrl
 
         private void CheckIfCommError(string msg)
         {
-            return; // NO DEBUG
-
+#if false
             //
             // NOTE: Cannot use query otherwise we will call ourself.
             // need to do this in 'raw' mode.
@@ -52,6 +51,7 @@ namespace HP663xxCtrl
             {
                 Debug.WriteLine($"Command {msg} failed! {err}");
             }
+#endif
         }
 
         private string Query(string cmd)
@@ -188,7 +188,7 @@ namespace HP663xxCtrl
             return statusFlags;
         }
 
-        #endregion
+#endregion
 
         #region Public Methods and fields
 
