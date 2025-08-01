@@ -11,6 +11,7 @@ using System.CodeDom;
 using ZedGraph;
 using System.Windows;
 using System.Diagnostics;
+using System.Windows.Media.Converters;
 
 namespace HP663xxCtrl {
     public class InstrumentWorker {
@@ -23,8 +24,11 @@ namespace HP663xxCtrl {
 
         public volatile uint refreshDelay_ms = 1000;
 
+
         volatile bool StopRequested = false;
         public volatile bool StopAcquireRequested = false;
+        public volatile OutputEnum CurrentSelectedChannel = OutputEnum.Output_None;
+
         ProgramDetails LastProgramDetails;
 
         public volatile bool InstrumentIsConnected = false; 
@@ -34,7 +38,8 @@ namespace HP663xxCtrl {
             Connected,
             ConnectionFailed,
             Measuring,
-            InitStage
+            InitStage,
+            StopMeasuring
         }
 
         enum CommandEnum {
@@ -316,7 +321,14 @@ namespace HP663xxCtrl {
             
             dev.SetupLogging(channel, mode, interval);
 
-            while (!StopRequested && !StopAcquireRequested) {
+            var hasExitLoop = false;
+            while(true)
+            {
+                if (StopRequested || StopAcquireRequested)
+                {
+                    hasExitLoop = true;
+                    break;
+                }
 
                 if (StopAcquireRequested || StopRequested) {
                     dev.AbortMeasurement();
@@ -328,9 +340,26 @@ namespace HP663xxCtrl {
                 if (LogerDatapointAcquired != null) {
                     foreach(var p in data)
                         LogerDatapointAcquired(this, p);
-
                 }
             }
+
+            if (hasExitLoop)
+            {
+                if (StateChanged != null)
+                {
+                    StateChanged(this, new StateEventData { State = StateEnum.StopMeasuring });
+                }
+
+                if (dev != null)
+                {
+                    if (CurrentSelectedChannel != OutputEnum.Output_None)
+                    {
+                        dev.RestoreOutState(CurrentSelectedChannel);
+                        CurrentSelectedChannel = OutputEnum.Output_None;
+                    }
+                }
+            }
+
             if (StateChanged != null) 
                 StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
         }

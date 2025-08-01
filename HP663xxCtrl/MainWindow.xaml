@@ -67,7 +67,7 @@
             <GroupBox Header="Connection" >
                 <StackPanel >
                     <Label Content="Address:" />
-                    <ComboBox x:Name="AddressComboBox"  AllowDrop="True" IsEditable="True" Text="GPIB0::5::INSTR" />
+                    <ComboBox x:Name="AddressComboBox"  AllowDrop="True" IsEditable="True" />
                     <Button x:Name="ConnectButton" Content="Connect"  Click="GoButton_Click"/>
                     <Button x:Name="DisconnectButton" Content="Disconnect" Click="DisconnectButton_Click" IsEnabled="False"/>
                 </StackPanel>

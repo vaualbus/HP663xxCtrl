@@ -128,6 +128,15 @@ namespace HP663xxCtrl
             return ret;
         }
 
+        private double[] QueryDouble(string cmd)
+        {
+            var res = Query(cmd).Trim()
+                .Split(new char[] { ',', ';' })
+                .Select(x => double.Parse(x, CI)).ToArray();
+
+            return res;
+        }
+
         private StatusFlags DecodeFlags(OperationStatusEnum opFlags, QuestionableStatusEnum questFlags)
         {
             StatusFlags flags = new StatusFlags();
@@ -252,9 +261,11 @@ namespace HP663xxCtrl
                 ret.I2 = double.NaN;
             }
 
-            // RMS is also available using MEAS:DVM:ACDC
+
+            // Measure DVM data
             if(measureDVM && HasDVM)
                 ret.DVM = Double.Parse(Query("MEAS:DVM?"),CI); // 2048*(15.6us) => 50 ms
+                // ret.DVM_RMS = Double.Parse(Query("MEAS:DVM:ACDC?"),CI);
             else
                 ret.DVM = Double.NaN;
             ret.duration = DateTime.Now.Subtract(start).TotalMilliseconds;
@@ -336,8 +347,6 @@ namespace HP663xxCtrl
                 // Official GUI used 0.00500760 as minimum.
                 // Less than about 3 ms causes nearly immediate buffer overruns
                 // Less than about 5 ms causes eventual buffer overruns.
-               /* if(interval < 0.003)
-                    interval = 0.003;*/
 
                 WriteString(String.Format(
                     "CONF:DLOG {0},{1},{2},{3},1024,IMM",
@@ -424,11 +433,9 @@ namespace HP663xxCtrl
                             ));
                         DLogLastSW = swTime;
                     }
-                    var a = retList.ToArray();
-                    for (int i = 0; i < a.Length; i++)
-                        a[i].Max = deltaDuration;
 
-                    return a;
+                    var result = retList.ToArray();
+                    return result;
                 } 
                 catch (Exception ex)
                 {

@@ -45,6 +45,13 @@ namespace HP663xxCtrl {
 
             VM = (MainWindowVm)DataContext;
             VM.Window = this;
+
+            //
+            // Add default intr address ( my home setup (: )
+            //
+            AddressComboBox.Items.Add("GPIB0::5::INSTR");
+            AddressComboBox.Items.Add("GPIB0::10::INSTR");
+            AddressComboBox.SelectedIndex = 0;
         }
 
         System.Drawing.Color[] CurveColors = new System.Drawing.Color[] {
@@ -249,6 +256,7 @@ namespace HP663xxCtrl {
                             AddressComboBox.IsEnabled = true;
                             VM.InstWorker.InstrumentIsConnected = false;
                             break;
+
                         case InstrumentWorker.StateEnum.Measuring:
                             ConnectionStatusBarItem.Content = "MEASURING"; break;
                     }
@@ -499,10 +507,10 @@ namespace HP663xxCtrl {
 
         private void StopLoggingButton_Click(object sender, RoutedEventArgs e) {
             StopLoggingButton.IsEnabled = false;
-            VM.InstWorker.RequestRestoreOutState(GetSelectedChannel());
             VM.InstWorker.StopAcquireRequested = true;
             RestoreStateRequired = true;
             SaveLogDataButton.IsEnabled = true;
+            VM.InstWorker.CurrentSelectedChannel = GetSelectedChannel();
         }
 
         private MeasWindowType GetMeasWindowType(string itemSter)
