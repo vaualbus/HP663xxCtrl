@@ -100,52 +100,6 @@ namespace HP663xxCtrl
             return res;
         }
 
-        // Reimplemented here versus the IVI library version because I 
-        // Couldn't figure out how to read the final \n at the end of the block,
-        // which was causing communications issues.
-        // Note that you need to read the '#' before calling this function
-        private float[] ReadFloatBlock()
-        {
-
-            byte[] x;
-            int i = 0;
-
-            x = dev.RawIO.Read();
-
-            int lenLen = int.Parse(System.Text.Encoding.ASCII.GetString(x, i, 1));
-            i++;
-
-            int len = int.Parse(System.Text.Encoding.ASCII.GetString(x, i, lenLen));
-            i += lenLen;
-
-            // If more data is needed?
-            int expectedTotalLen = i + len;
-            while (x.Length < expectedTotalLen)
-            {
-                x = x.Concat(dev.RawIO.Read()).ToArray();
-            }
-
-            if (len % 4 != 0)
-            {
-                throw new FormatException();
-            }
-
-            int n = len / 4;
-            var ret = new float[n];
-            var be = new byte[4];
-            for (int j = 0; j < n; i += 4, j++)
-            {
-                // swap byte order
-                be[0] = x[i + 3];
-                be[1] = x[i + 2];
-                be[2] = x[i + 1];
-                be[3] = x[i + 0];
-                ret[j] = BitConverter.ToSingle(be, 0);
-            }
-
-            return ret;
-        }
-
         private double[] GetCurrentRanges()
         {
             double[] ret = null;
@@ -369,42 +323,15 @@ namespace HP663xxCtrl
 
         public void EnableOutput(OutputEnum channel, bool enabled)
         {
-           if (enabled)
+            // This set of PSU allow to set 
+            if (HasOutput2)
             {
-                // HIZ so voltage/current settings are not altered
-                if (channel == OutputEnum.Output_1)
-                {
-                    WriteString(":OUTP ON");
-                }
-                else if (channel == OutputEnum.Output_2)
-                {
-                    WriteString(":OUTP2 ON");
-                }
-                else
-                {
-                    WriteString(":OUTP ON");
-                    WriteString(":OUTP2 ON");
-                }
+                var outNum = channel == OutputEnum.Output_1 ? "1" : "2";
+                WriteString($"OUTPUT{outNum} " + (enabled ? "ON" : "OFF"));
             }
             else
             {
-                if (channel == OutputEnum.Output_1)
-                {
-                    //WriteString(":OUTP:OFF:MODE HIZ");
-                    WriteString(":OUTP1 OFF");
-                }
-                else if (channel == OutputEnum.Output_2)
-                {
-                    //WriteString(":OUTP2:OFF:MODE HIZ");
-                    WriteString(":OUTP2 OFF");
-                }
-                else
-                {
-                    //WriteString(":OUTP:OFF:MODE HIZ");
-                    //WriteString(":OUTP2:OFF:MODE HIZ");
-                    WriteString(":OUTP OFF");
-                    WriteString(":OUTP2 OFF");
-                }
+                WriteString($"OUTPUT " + (enabled ? "ON" : "OFF"));
             }
         }
 
@@ -552,14 +479,6 @@ namespace HP663xxCtrl
             }
 
             details.I1Range = QueryDouble(":SOUR:CURR:RANGE?")[0];
-
-            /*string detector = Query("SENSE:CURR:DET?").Trim();
-            switch (detector)
-            {
-                case "DC": details.Detector = CurrentDetectorEnum.DC; break;
-                case "ACDC": details.Detector = CurrentDetectorEnum.ACDC; break;
-                default: throw new Exception();
-            }*/
             details.Detector = CurrentDetectorEnum.DC;
 
             return details;
