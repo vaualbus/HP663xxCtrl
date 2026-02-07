@@ -12,6 +12,23 @@ namespace HP663xxCtrl
 {
     public class HP663xx : IFastSMU
     {
+        private enum Models
+        {
+            Model_None = 0,
+            Model_66312A,
+            Model_66332A,
+            Model_66309B,
+            Model_66309D,
+            Model_66311B,
+            Model_66311D,
+            Model_66319B,
+            Model_66319D,
+            Model_66321B,
+            Model_66321D,
+           
+            Model_Count
+        };
+
         [Flags]
         public enum OperationStatusEnum
         {
@@ -29,6 +46,7 @@ namespace HP663xxCtrl
         {
             OV = 1,
             OCP = 2,
+            FS  = 4, // Blown Fuse 
             FP_Local = 8, // frontpanel local was pressed
             OverTemperature = 16,
             OpenSenseLead = 32,
@@ -43,13 +61,15 @@ namespace HP663xxCtrl
         public enum StatusByteEnum
         {
             QuestionableStatusSummary = 8,
-            MesasgeAvailable = 16,
+            MessageAvailable = 16,
             EventSTB = 32,
             MasterStatusSummary = 64,
             OperationStatusSummary = 128
         }
 
         private CultureInfo CI = System.Globalization.CultureInfo.InvariantCulture;
+
+        private Models CurrentModel;
 
         // PRIVATE 
         private IMessageBasedSession dev;
@@ -72,7 +92,6 @@ namespace HP663xxCtrl
         public bool HasOVP { get { return true; } }
         public bool Has1ARange { get; private set; }
 
-
         //
         // PRIVATE METHODS
         //
@@ -81,15 +100,19 @@ namespace HP663xxCtrl
             switch (type)
             {
                 case MeasWindowType.Hanning:
+                {
                     WriteString("SENS:WIND HANN");
-                    break;
+                } break;
+
                 case MeasWindowType.Rect:
+                {
                     WriteString("SENS:WIND RECT");
-                    break;
+                } break;
 
                 default:
+                {
                     WriteString("SENS:WIND HANN");
-                    break;
+                } break;
             }
         }
 
@@ -103,16 +126,25 @@ namespace HP663xxCtrl
             byte[] x;
             int i = 0;
             x = dev.RawIO.Read();
+            
             int lenLen = int.Parse(System.Text.Encoding.ASCII.GetString(x, i, 1));
             i++;
+            
             int len = int.Parse(System.Text.Encoding.ASCII.GetString(x, i, lenLen));
             i += lenLen;
+           
             // If more data is needed?
             int expectedTotalLen = i + len;
             while (x.Length < expectedTotalLen)
+            {
                 x = x.Concat(dev.RawIO.Read()).ToArray();
+            }
+
             if (len % 4 != 0)
+            {
                 throw new FormatException();
+            }
+
             int n = len / 4;
             var ret = new float[n];
             var be = new byte[4];
@@ -172,18 +204,21 @@ namespace HP663xxCtrl
             WriteString("*ESE 0");
         }
 
-        public void SetCurrentRange(double range) {
+        public void SetCurrentRange(double range) 
+        {
             WriteString("SENS:CURR:RANG " + range.ToString(CI));
         }
 
-        public ProgramDetails ReadProgramDetails() {
+        public ProgramDetails ReadProgramDetails()
+        {
 
             string response = Query("OUTP?;VOLT?;CURR?;"
                 + ":VOLT:PROT:STAT?;:VOLT:PROT?;:CURR:PROT:STAT?" +
-                (HasOutput2? ";:VOLT2?;CURR2?":"")).Trim();
+                (HasOutput2 ? ";:VOLT2?;CURR2?"  : "")).Trim();
 
             string[] parts = response.Split(new char[] { ';' });
-            ProgramDetails details = new ProgramDetails() {
+            ProgramDetails details = new ProgramDetails() 
+            {
                 Enabled1 = (parts[0] == "1"),
                 Enabled2 = false,
                 V1 = double.Parse(parts[1],CI),
@@ -200,42 +235,52 @@ namespace HP663xxCtrl
             };
 
             // Maximums
+            details.I1Range = Double.Parse(Query(":sense:curr:range?").Trim(), CI);
             details.I1Ranges = GetCurrentRanges();
+
             parts = Query("VOLT? MAX; CURR? MAX").Trim().Split(new char[] {';'});
             details.MaxV1 = double.Parse(parts[0],CI);
             details.MaxI1 = double.Parse(parts[1],CI);
-            if (HasOutput2) {
+
+            if (HasOutput2) 
+            {
                 parts = Query("VOLT2? MAX; CURR2? MAX").Trim().Split(new char[] { ';' });
                 details.MaxV2 = double.Parse(parts[0],CI);
                 details.MaxI2 = double.Parse(parts[1],CI);
 
             }
-            details.I1Range = Double.Parse(Query(":sense:curr:range?").Trim(),CI);
 
             string detector = Query("SENSE:CURR:DET?").Trim();
-            switch (detector) {
-                case "DC": details.Detector = CurrentDetectorEnum.DC; break;
-                case "ACDC": details.Detector = CurrentDetectorEnum.ACDC; break;
-                default: throw new Exception();
+            switch (detector)
+            {
+                case "DC": { details.Detector = CurrentDetectorEnum.DC; } break;
+                case "ACDC": { details.Detector = CurrentDetectorEnum.ACDC; } break;
+                default: { throw new Exception(); } break;
             }
+
             return details;
         }
 
         public InstrumentState ReadState(bool measureCh2=true, bool measureDVM=true) {
             InstrumentState ret = new InstrumentState();
             DateTime start = DateTime.Now;
+            
             // ~23 ms
             string statusStr = Query("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
                 ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?").Trim();
+
             string[] statuses = statusStr.Split(new char[] { ';' });
-            ret.Flags = DecodeFlags(
+            ret.Flags = DecodeFlags( 
                 (OperationStatusEnum)int.Parse(statuses[0], CI),
-                (QuestionableStatusEnum)int.Parse(statuses[1], CI));
+                (QuestionableStatusEnum)int.Parse(statuses[1], CI)
+            );
+
             ret.IRange = double.Parse(statuses[2],CI);
             ret.OutputEnabled1 = statuses[3] == "1";
             ret.OutputEnabled2 = true; // Out2 follow out 1.
             ret.OVP = statuses[4] == "1";
             ret.OCP = statuses[5] == "1";
+
             // Must measure each thing individually
             // Default is 2048 points, with 46.8us rate
             // This is 95.8 ms; about 6 PLC in America, or 5 in other places.
@@ -252,22 +297,31 @@ namespace HP663xxCtrl
             // Channel is about 30 ms
             ret.V = Double.Parse(Query("MEAS:VOLT?"),CI);
             ret.I = Double.Parse(Query("MEAS:CURR?"),CI);
+            
             // Ch2 is about 100 ms
-            if (measureCh2 && HasOutput2) {
+            if (measureCh2 && HasOutput2) 
+            {
                 ret.V2 = Double.Parse(Query("MEAS:VOLT2?"),CI);
                 ret.I2 = Double.Parse(Query("MEAS:CURR2?"),CI); // Fixed at 2048*(15.6us)
-            } else {
+            }
+            else
+            {
                 ret.V2 = double.NaN;
                 ret.I2 = double.NaN;
             }
 
 
             // Measure DVM data
-            if(measureDVM && HasDVM)
-                ret.DVM = Double.Parse(Query("MEAS:DVM?"),CI); // 2048*(15.6us) => 50 ms
+            if (measureDVM && HasDVM)
+            {
+                ret.DVM = Double.Parse(Query("MEAS:DVM?"), CI); // 2048*(15.6us) => 50 ms
                 // ret.DVM_RMS = Double.Parse(Query("MEAS:DVM:ACDC?"),CI);
+            }
             else
+            { 
                 ret.DVM = Double.NaN;
+            }
+
             ret.duration = DateTime.Now.Subtract(start).TotalMilliseconds;
 
             return ret;
@@ -305,41 +359,46 @@ namespace HP663xxCtrl
         public void ClearErrors()
         {
             string msg;
-            while(!( (msg = Query("SYSTem:ERRor?")).StartsWith("+0,"))) {
+            while(!( (msg = Query("SYSTem:ERRor?")).StartsWith("+0,")))
+            {
             }
         }
 
         // Return 4 32-bit words
-        public UInt32[] GetFirmwareWord(uint w) {
+        public UInt32[] GetFirmwareWord(uint w)
+        {
             
             WriteString(String.Format(
                 "DIAG:PEEK? #H{0:X4}; PEEK? #H{1:X4}; PEEK? #H{2:X4}; PEEK? #H{3:X4}",
                 w,w+1,w+2,w+3));
+
             string s = ReadString();
             var parts = s.Split(new char[] { ';' }).Select(x => x.Trim().Substring(2));
             return parts.Select(x => UInt32.Parse(x, System.Globalization.NumberStyles.HexNumber)).ToArray();
         }
 
-        public void SetupLogging(
-            OutputEnum channel,
-            SenseModeEnum mode,
-            double interval
-            ) {
+        public void SetupLogging(OutputEnum channel,  SenseModeEnum mode, double interval) 
+        {
             int numPoints = 4096;
             double AcqInterval = 15.6e-6;
             string modeString;
             int triggerOffset = 0;
 
             if (mode == SenseModeEnum.DVM && !HasDVM)
+            {
                 throw new Exception();
-            switch (mode) {
-                case SenseModeEnum.CURRENT: modeString = "CURR"; break;
-                case SenseModeEnum.VOLTAGE: modeString = "VOLT"; break;
-                case SenseModeEnum.DVM: modeString = "DVM"; break;
-                default: throw new InvalidOperationException("Unknown transient measurement mode");
             }
 
-            if (HasDataLog) {
+            switch (mode) 
+            {
+                case SenseModeEnum.CURRENT: { modeString = "CURR"; } break;
+                case SenseModeEnum.VOLTAGE: { modeString = "VOLT";  } break;
+                case SenseModeEnum.DVM: { modeString = "DVM"; } break;
+                default: { throw new InvalidOperationException("Unknown transient measurement mode"); } break;
+            }
+
+            if (HasDataLog) 
+            {
                 var currRange = Query("SENS:CURR:RANG?").Trim();
                 string detector = Query("SENSe:CURRent:DETector?").Trim();
                 if(interval > 1.0)
@@ -357,7 +416,9 @@ namespace HP663xxCtrl
                 WriteString("INIT:NAME DLOG");
                 WriteString("TRIG:ACQ");
                 Query("*ESR?");
-            } else {
+            } 
+            else
+            {
                 // Immediate always has a trigger count of 1
                 WriteString("SENSe:FUNCtion \"" + modeString + "\"");
                 WriteString("SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
@@ -376,26 +437,36 @@ namespace HP663xxCtrl
             DLogInOverrun = false;
         }
 
-        public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode) {
+        public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode) 
+        {
             LoggerDatapoint ret = new LoggerDatapoint();
             string rsp;
             string[] parts;
-            if (HasDataLog) {
+            if (HasDataLog) 
+            {
                 var retList = new List<LoggerDatapoint>();
                 WriteString("FETC:ARR:DLOG?");
                 try
                 {
                     byte[] x = dev.RawIO.Read(1);
                     if (x.Length != 1 || x[0] != '#')
+                    {
                         throw new FormatException();
+                    }
+
                     double swTime = LoggingStopwatch.Elapsed.TotalSeconds;
                     var data = ReadFloatBlock();
                     if (data[0] != data[1] || data[0] != data[2])
+                    {
                         throw new Exception("Unexpected block format");
+                    }
+
                     DateTime recordTime = DateTime.Now;
                     // data[0,1,2] is -1 if there is a buffer overrun.
                     if (LoggingN == 0)
+                    {
                         DLogFudgeOffset = swTime - (data[0] - 1) * DLogPeriod;
+                    }
                     if (data[0] < 0)
                     {
                         System.Diagnostics.Trace.WriteLine("Buffer overrun");
@@ -446,26 +517,31 @@ namespace HP663xxCtrl
 
             switch(mode) {
                 case SenseModeEnum.CURRENT:
+                {
                     rsp = Query("MEAS:CURR?;:FETCH:CURR:MIN?;MAX?;ACDC?").Trim();
                     parts = rsp.Split(new char[] { ';' });
                     ret.Mean = double.Parse(parts[0], CI);
                     ret.Min = double.Parse(parts[1], CI);
                     ret.Max = double.Parse(parts[2], CI);
                     ret.RMS = double.Parse(parts[3], CI);
-                    break;
+                } break;
+
                 case SenseModeEnum.VOLTAGE:
+                {
                     rsp = Query("MEAS:VOLT?;:FETCH:VOLT:MIN?;MAX?;ACDC?").Trim();
                     parts = rsp.Split(new char[] { ';' });
                     ret.Mean = double.Parse(parts[0], CI);
                     ret.Min = double.Parse(parts[1], CI);
-                    ret.Max = double.Parse(parts[2],CI);
-                    ret.RMS = double.Parse(parts[3],CI);
-                    break;
+                    ret.Max = double.Parse(parts[2], CI);
+                    ret.RMS = double.Parse(parts[3], CI);
+                } break;
+
                 case SenseModeEnum.DVM:
+                {
                     rsp = Query("MEAS:DVM?").Trim();
                     parts = rsp.Split(new char[] { ';' });
                     ret.Mean = double.Parse(parts[0], CI);
-                    break;
+                } break;
             }
 
             ret.t = LoggingStopwatch.Elapsed.TotalSeconds;
@@ -486,13 +562,16 @@ namespace HP663xxCtrl
             MeasWindowType windowType = MeasWindowType.Null
             )
         {
-            if (triggerCount * numPoints > 4096) {
+            if (triggerCount * numPoints > 4096)
+            {
                 throw new InvalidOperationException();
             }
 
             string modeString;
             if (mode == SenseModeEnum.DVM && !HasDVM)
+            {
                 throw new Exception();
+            }
 
             switch (mode)
             {
@@ -507,32 +586,51 @@ namespace HP663xxCtrl
 
             WriteString("SENSe:FUNCtion \"" + modeString + "\"");
             if (numPoints < 1 || numPoints > 4096)
+            {
                 throw new InvalidOperationException("Number of points must be betweer 1 and 4096");
+            }
+
             // Immediate always has a trigger count of 1
             if (triggerEdge == TriggerSlopeEnum.Immediate)
+            {
                 triggerCount = 1;
+            }
+
             if (interval < 15.6e-6)
+            {
                 interval = 15.6e-6;
-            if (interval > 1e4)
-                interval = 1e4;
+            }
+
+            if (interval > 31200)
+            {
+                interval = 31200; /* Max sampling time. */
+            }
+
             WriteString("SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
                 "TINTerval " + interval.ToString(CI) + ";" +
                 "OFFSET:POINTS " + triggerOffset.ToString(CI));
-            if(triggerEdge== TriggerSlopeEnum.Immediate || double.IsNaN(level)) {
+
+            if(triggerEdge== TriggerSlopeEnum.Immediate || double.IsNaN(level))
+            {
                 WriteString("TRIG:ACQ:SOURCE BUS");
                 WriteString("ABORT;*WAI");
                 WriteString("INIT:NAME ACQ;:TRIG:ACQ");
-            } else {
+            } 
+            else 
+            {
                 string slopeStr = "EITH";
-                switch (triggerEdge) {
+                switch (triggerEdge)
+                {
                     case TriggerSlopeEnum.Either: slopeStr = "EITH"; break;
                     case TriggerSlopeEnum.Positive: slopeStr = "POS"; break;
                     case TriggerSlopeEnum.Negative: slopeStr = "NEG"; break;
                 }
+
                 WriteString("TRIG:ACQ:COUNT:" + modeString + " " + triggerCount.ToString(CI) + ";" +
                     ":TRIG:ACQ:LEVEL:" + modeString + " " + level.ToString(CI) + ";" +
                     ":TRIG:ACQ:SLOPE:" + modeString + " " + slopeStr + ";" +
                     ":TRIG:ACQ:HYST:" + modeString + " " + hysteresis.ToString(CI));
+
                 WriteString("TRIG:ACQ:SOURCE INT");
                 WriteString("ABORT;*WAI");
                 WriteString("INIT:NAME ACQ");
@@ -552,9 +650,9 @@ namespace HP663xxCtrl
         }
 
         public MeasArray FinishTransientMeasurement(
-            OutputEnum channel,
-            SenseModeEnum mode,
-            int triggerCount = 1) {
+            OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
+        {
+
             /*StatusByteEnum stb;
             do {
                 System.Threading.Thread.Sleep(50);
@@ -563,34 +661,36 @@ namespace HP663xxCtrl
             dev.ReadString(); // read the +1 from *OPC?*/
 
             MeasArray res = new MeasArray();
+            res.Mode = mode;
+            res.Data = new double[triggerCount][];
 
-            bool isNormalMeasureFetched = false;
+            bool isDVM_measureFetched = false;
             switch (mode)
             {
                 case SenseModeEnum.VOLTAGE:
+                {
                     WriteString("FETCH:ARRay:VOLTage?");
-                    break;
+                } break;
 
                 case SenseModeEnum.CURRENT:
+                {
                     WriteString("FETCH:ARRay:CURRent?");
-                    break;
+                } break;
 
                 case SenseModeEnum.DVM:
-                    isNormalMeasureFetched = true;
-                    break;
+                {
+                    isDVM_measureFetched = true;
+                } break;
 
-                default:
-                    break;
+                default: 
+                { } break;
             }
 
             float[] data = null;
-            if (isNormalMeasureFetched)
+            if ( isDVM_measureFetched )
             {
                 int sampleCount = 128;
                 data = new float[sampleCount];
-
-                res.Mode = SenseModeEnum.DVM;
-                res.Data = new double[triggerCount][];
 
                 for (int i = 0; i < sampleCount; i++)
                 {
@@ -601,8 +701,6 @@ namespace HP663xxCtrl
             else
             { 
                 data = dev.FormattedIO.ReadBinaryBlockOfSingle();
-                res.Mode = mode;
-                res.Data = new double[triggerCount][];
             }
 
             int numPoints = data.Length / triggerCount;
@@ -636,35 +734,49 @@ namespace HP663xxCtrl
             return res;
         }
 
-        public void ClearProtection() {
+        public void ClearProtection() 
+        {
             WriteString("OUTPut:PROTection:CLEar");
         }
 
         public void EnableOutput(OutputEnum channel, bool enabled)
         {
-            WriteString("OUTPUT  " + (enabled ? "ON" : "OFF") );
+            // This set of PSU allow to set 
+            if ( HasOutput2 )
+            {
+                var outNum = channel == OutputEnum.Output_1 ? "1" : "2";
+                WriteString($"OUTPUT{outNum} " + (enabled ? "ON" : "OFF"));
+            }
+            else
+            {
+                WriteString($"OUTPUT " + (enabled ? "ON" : "OFF"));
+            }
         }
 
         public void SetIV(int channel, double voltage, double current) {
-            WriteString("VOLT" +
-                (channel == 2 ? "2 " : " ") + voltage.ToString(CI) +
-                ";:CURR" +
-                (channel == 2 ? "2 " : " ") + current.ToString(CI) 
-                );
+            WriteString(
+                "VOLT"   + (channel == 2 ? "2 " : " ") + voltage.ToString(CI) +
+                ";:CURR" + (channel == 2 ? "2 " : " ") + current.ToString(CI) 
+            );
         }
         /// <summary>
         /// Set to Double.NaN to disable OVP
         /// </summary>
         /// <param name="ovp"></param>
-        public void SetOVP(double ovp) {
+        public void SetOVP(double ovp) 
+        {
             if (double.IsNaN(ovp))
+            {
                 WriteString("VOLTage:PROTection:STATe OFF");
-            else {
+            }
+            else
+            {
                 WriteString("VOLTAGE:PROTECTION " + ovp.ToString(CI));
                 WriteString("VOLTage:PROTection:STATe ON");
             }
         }
-        public void SetOCP(bool enabled) {
+        public void SetOCP(bool enabled) 
+        {
             WriteString("CURR:PROT:STAT " + (enabled ? "1":"0"));
         }
 
@@ -674,14 +786,17 @@ namespace HP663xxCtrl
         {
             int psc = int.Parse(Query("*PSC?"), CI);
             if (psc == 0)
-           
+            {
                 WriteString("*PSC 1"); ;
+            }
         }
+
         public static bool SupportsIDN(string idn) {
             if (idn.Contains(",66309B,") || idn.Contains(",66319B,") ||
                 idn.Contains(",66309D,") || idn.Contains(",66319D,") ||
                 idn.Contains(",66311B,") || idn.Contains(",66321B,") ||
-                idn.Contains(",66311D,") || idn.Contains(",66321D,"))
+                idn.Contains(",66311D,") || idn.Contains(",66321D,") ||
+                idn.Contains(",66312A,") || idn.Contains(",66332A,"))
                 return true;
             return false;
         }
@@ -702,23 +817,45 @@ namespace HP663xxCtrl
             }
 
             Model = IDParts[1];
-            switch (Model.ToUpper()) {
+            var ModelUpper = Model.ToUpper();
+            switch (ModelUpper) {
+
+                case "66312A":
+                case "66332A":
+                {
+                    HasDVM = false;
+                    HasOutput2 = false;
+                    CurrentModel = ModelUpper == "66312A" ? Models.Model_66312A : Models.Model_66332A;
+                } break;
+                
                 case "66309B":
                 case "66319B":
-                    HasDVM = false; HasOutput2 = true;
+                    HasDVM = false;
+                    HasOutput2 = true;
+                    CurrentModel = ModelUpper == "66309B" ? Models.Model_66309B : Models.Model_66319B;
                     break;
+
                 case "66309D":
                 case "66319D":
-                    HasDVM = true; HasOutput2 = true;
+                    HasDVM = true;
+                    HasOutput2 = true;
+                    CurrentModel = ModelUpper == "66309D" ? Models.Model_66309D : Models.Model_66319D;
                     break;
+
                 case "66311B":
                 case "66321B":
-                    HasDVM = false; HasOutput2 = false;
+                    HasDVM = false; 
+                    HasOutput2 = false;
+                    CurrentModel = ModelUpper == "66311B" ? Models.Model_66311B : Models.Model_66321B;
                     break;
+
                 case "66311D":
                 case "66321D":
-                    HasDVM = true; HasOutput2 = true;
+                    HasDVM = true;
+                    HasOutput2 = true;
+                    CurrentModel = ModelUpper == "66311D" ? Models.Model_66311D : Models.Model_66321D;
                     break;
+
                 default:
                     dev.Dispose();
                     dev = null;
@@ -830,7 +967,11 @@ namespace HP663xxCtrl
         public OutputEnum GetOutputState()
         {
             OutputEnum result = OutputEnum.Output_None;
-            var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
+
+            var outStateStr = QueryString(":OUTP:STAT?" +
+                     (HasOutput2 ? ";:OUTP2:STAT?" : "")
+                );
+ 
 
             // Setup a measurement to read the curent I/V values.
             if (outStateStr[0] == "1")
@@ -856,10 +997,24 @@ namespace HP663xxCtrl
         private double[] GetCurrentRanges()
         {
             double[] ret = null;
-            if (Has1ARange)
-                ret = new double[] { 0.02, 1, 3 };
-            else
-                ret = new double[] { 0.02, 3 };
+            switch ( CurrentModel )
+            {
+                case Models.Model_66312A:
+                {
+                    ret = new double[] { 0.02, 2 };
+                } 
+                break;
+
+                case Models.Model_66332A:
+                {
+                    ret = new double[] { 0.02, 5 };
+                } break;
+
+                default:
+                {
+                    ret = Has1ARange ? new double[] { 0.02, 1, 3 } : new double[] { 0.02, 1 };
+                } break;
+            }
 
             return ret;
         }
