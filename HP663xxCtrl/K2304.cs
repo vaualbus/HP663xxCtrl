@@ -216,7 +216,7 @@ namespace HP663xxCtrl {
                 case SenseModeEnum.CURRENT: { modeString = "CURR"; } break;
                 case SenseModeEnum.VOLTAGE: { modeString = "VOLT"; } break;
                 case SenseModeEnum.DVM: { modeString = "DVM"; } break;
-                default: { throw new InvalidOperationException("Unknown transient measurement mode"); } break;
+                default: { throw new InvalidOperationException("Unknown transient measurement mode"); }
             }
 
             // Immediate always has a trigger count of 1
@@ -300,7 +300,7 @@ namespace HP663xxCtrl {
                 case SenseModeEnum.CURRENT: { modeString = "CURR"; } break;
                 case SenseModeEnum.VOLTAGE: { modeString = "VOLT"; }  break;
                 case SenseModeEnum.DVM: { modeString = "DVM"; }  break;
-                default: { throw new InvalidOperationException("Unknown transient measurement mode"); } break;
+                default: { throw new InvalidOperationException("Unknown transient measurement mode"); }
             }
            
             WriteString("SENSE:PCURRENT:SYNC OFF"); // off is digitization mode

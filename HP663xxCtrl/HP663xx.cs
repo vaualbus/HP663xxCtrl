@@ -73,7 +73,6 @@ namespace HP663xxCtrl
 
         // PRIVATE 
         private IMessageBasedSession dev;
-        private string ID;
         private string Model;
 
         private bool HasDataLog { get; set; }
@@ -211,7 +210,6 @@ namespace HP663xxCtrl
 
         public ProgramDetails ReadProgramDetails()
         {
-
             string response = Query("OUTP?;VOLT?;CURR?;"
                 + ":VOLT:PROT:STAT?;:VOLT:PROT?;:CURR:PROT:STAT?" +
                 (HasOutput2 ? ";:VOLT2?;CURR2?"  : "")).Trim();
@@ -231,7 +229,7 @@ namespace HP663xxCtrl
                 HasDVM = HasDVM,
                 HasOutput2 = HasOutput2,
                 HasOVP = this.HasOVP,
-                ID = ID
+                ID = Query("*IDN?")
             };
 
             // Maximums
@@ -255,7 +253,7 @@ namespace HP663xxCtrl
             {
                 case "DC": { details.Detector = CurrentDetectorEnum.DC; } break;
                 case "ACDC": { details.Detector = CurrentDetectorEnum.ACDC; } break;
-                default: { throw new Exception(); } break;
+                default: { throw new Exception(); }
             }
 
             return details;
@@ -394,7 +392,7 @@ namespace HP663xxCtrl
                 case SenseModeEnum.CURRENT: { modeString = "CURR"; } break;
                 case SenseModeEnum.VOLTAGE: { modeString = "VOLT";  } break;
                 case SenseModeEnum.DVM: { modeString = "DVM"; } break;
-                default: { throw new InvalidOperationException("Unknown transient measurement mode"); } break;
+                default: { throw new InvalidOperationException("Unknown transient measurement mode"); }
             }
 
             if (HasDataLog) 
@@ -440,8 +438,8 @@ namespace HP663xxCtrl
         public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode) 
         {
             LoggerDatapoint ret = new LoggerDatapoint();
-            string rsp;
-            string[] parts;
+
+            double[] parts = null;
             if (HasDataLog) 
             {
                 var retList = new List<LoggerDatapoint>();
@@ -516,31 +514,34 @@ namespace HP663xxCtrl
             }
 
             switch(mode) {
+
                 case SenseModeEnum.CURRENT:
                 {
-                    rsp = Query("MEAS:CURR?;:FETCH:CURR:MIN?;MAX?;ACDC?").Trim();
-                    parts = rsp.Split(new char[] { ';' });
-                    ret.Mean = double.Parse(parts[0], CI);
-                    ret.Min = double.Parse(parts[1], CI);
-                    ret.Max = double.Parse(parts[2], CI);
-                    ret.RMS = double.Parse(parts[3], CI);
-                } break;
+                    parts = QueryDouble("MEAS:CURR?;:FETCH:CURR:MIN?;MAX?;ACDC?;LOW?;HIGH?");
+                    ret.Mean = parts[0];
+                    ret.Min  = parts[1];
+                    ret.Max  = parts[2];
+                    ret.RMS  = parts[3];
+                    ret.Low  = parts[4];
+                    ret.High = parts[5];
+                    } break;
 
                 case SenseModeEnum.VOLTAGE:
                 {
-                    rsp = Query("MEAS:VOLT?;:FETCH:VOLT:MIN?;MAX?;ACDC?").Trim();
-                    parts = rsp.Split(new char[] { ';' });
-                    ret.Mean = double.Parse(parts[0], CI);
-                    ret.Min = double.Parse(parts[1], CI);
-                    ret.Max = double.Parse(parts[2], CI);
-                    ret.RMS = double.Parse(parts[3], CI);
+                    parts = QueryDouble("MEAS:VOLT?;:FETCH:VOLT:MIN?;MAX?;ACDC?LOW?;HIGH?");
+                    ret.Mean = parts[0];
+                    ret.Min = parts[1];
+                    ret.Max = parts[2];
+                    ret.RMS = parts[3];
+                    ret.Low = parts[4];
+                    ret.High = parts[5];
                 } break;
 
                 case SenseModeEnum.DVM:
                 {
-                    rsp = Query("MEAS:DVM?").Trim();
-                    parts = rsp.Split(new char[] { ';' });
-                    ret.Mean = double.Parse(parts[0], CI);
+                    parts = QueryDouble("MEAS:DVM?:FETCH:VOLT:ACDC?");
+                    ret.Mean = parts[0];
+                    ret.RMS = parts[1];
                 } break;
             }
 
@@ -584,7 +585,7 @@ namespace HP663xxCtrl
             // Set the window type
             SetMeasWindowType(windowType);
 
-            WriteString("SENSe:FUNCtion \"" + modeString + "\"");
+            WriteString($"SENSe:FUNCtion {modeString}");
             if (numPoints < 1 || numPoints > 4096)
             {
                 throw new InvalidOperationException("Number of points must be betweer 1 and 4096");
@@ -807,10 +808,9 @@ namespace HP663xxCtrl
             dev.Clear(); // clear I/O buffer
             dev.TimeoutMilliseconds = 5000; // 5 seconds
 
-            WriteString("*IDN?");
-            ID = ReadString().Trim();
-            var IDParts = ID.Trim().Split(new char[] { ',' });
-            if(IDParts.Length != 4) {
+            var IDParts = QueryString("*IDN?");
+            if(IDParts.Length != 4) 
+            {
                 dev.Dispose();
                 dev = null;
                 throw new InvalidOperationException("Not a known 663xx supply!");
@@ -818,8 +818,8 @@ namespace HP663xxCtrl
 
             Model = IDParts[1];
             var ModelUpper = Model.ToUpper();
-            switch (ModelUpper) {
-
+            switch (ModelUpper) 
+            {
                 case "66312A":
                 case "66332A":
                 {
@@ -873,11 +873,27 @@ namespace HP663xxCtrl
             WriteString("*CLS"); // clear status registers
             WriteString("ABORT");
             ClearErrors();
-            WriteString("FORMAT REAL");
-            WriteString("FORMat:BORDer NORMAL");
+
+            switch (CurrentModel)
+            {
+                case Models.Model_66312A:
+                case Models.Model_66332A:
+                {
+                    //
+                    // FORMAT is not supported in this instruments. 
+                    //
+                }
+                break;
+
+                default:
+                {
+                    WriteString("FORMAT REAL");
+                    WriteString("FORMat:BORDer NORMAL");
+                } break;
+            }
+
             // Enable the detection of open sense leads
             WriteString("SENSe:PROTection:STAT ON");
-            
         }
 
         public void SetDisplayText(string text, bool clearIt = false)

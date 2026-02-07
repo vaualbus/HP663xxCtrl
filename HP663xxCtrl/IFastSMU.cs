@@ -13,6 +13,7 @@ namespace HP663xxCtrl {
 
     public struct LoggerDatapoint {
         public double Min, Mean, Max, RMS;
+        public double Low, High;
         public double t;
         public DateTime RecordTime;
     }
