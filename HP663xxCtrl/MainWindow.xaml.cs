@@ -52,6 +52,30 @@ namespace HP663xxCtrl {
             AddressComboBox.Items.Add("GPIB0::5::INSTR");
             AddressComboBox.Items.Add("GPIB0::10::INSTR");
             AddressComboBox.SelectedIndex = 0;
+
+            // Disable all U Iitems by default.
+            OutCompMode.IsEnabled = false;
+            CurrentRangeComboBox.IsEnabled = false;
+            ACDCDetectorComboBox.IsEnabled = false;
+            MeasWindowTypeBox.IsEnabled = false;
+            DisconnectButton.IsEnabled = false;
+            ConnectionStatusBarItem.Content = "";
+            AcquireButton.IsEnabled = false;
+            ApplyProgramButton.IsEnabled = false;
+            StopAcquireButton.IsEnabled = false;
+            ClearProtectionButton.IsEnabled = false;
+            LogButton.IsEnabled = false;
+            StopLoggingButton.IsEnabled = false;
+            AddressComboBox.IsEnabled = false;
+            EnableOutputCheckbox.IsEnabled = false;
+            Enable2OutputCheckbox.IsEnabled = false;
+            OCPCheckbox.IsEnabled = false;
+            OVPCheckbox.IsEnabled = false;
+            DisplayTextToSend.IsEnabled = false;
+            ClearDisplay_Btn.IsEnabled = false;
+            DisableDisplay_Btn.IsEnabled = false;
+            SendText_Btn.IsEnabled = false;
+            GetErrors.IsEnabled = false;
         }
 
         System.Drawing.Color[] CurveColors = new System.Drawing.Color[] {
@@ -60,9 +84,9 @@ namespace HP663xxCtrl {
         };
 
         private OutputEnum OldOutState;
-        private bool RestoreStateRequired;
         private OutputEnum SelectedLogChannel;
         private OutputEnum SelectedAcqChannel;
+        private bool RestoreStateRequired;
 
         private OutputEnum GetOutState()
         {
@@ -188,6 +212,24 @@ namespace HP663xxCtrl {
                             StopLoggingButton.IsEnabled = false;
                             AddressComboBox.IsEnabled = false;
 
+
+                            OCPCheckbox.IsEnabled = true;
+                            OVPCheckbox.IsEnabled = true;
+                            EnableOutputCheckbox.IsEnabled = true;
+                            CurrentRangeComboBox.IsEnabled = true;
+                            ACDCDetectorComboBox.IsEnabled = true;
+
+                            DisplayTextToSend.IsEnabled = true;
+                            ClearDisplay_Btn.IsEnabled = true;
+                            DisableDisplay_Btn.IsEnabled = true;
+
+                            SendText_Btn.IsEnabled = true;
+                            GetErrors.IsEnabled = true;
+
+
+
+                            OutCompMode.IsEnabled = eventData.HasOutputCompensation;
+
                             if (RestoreStateRequired)
                             {
                                 //
@@ -241,6 +283,7 @@ namespace HP663xxCtrl {
                             AddressComboBox.IsEnabled = true;
                             ConnectButton.IsEnabled = true;
                             DisconnectButton.IsEnabled = false;
+                            OutCompMode.IsEnabled = false;
 
                             ConnectionStatusBarItem.Content = "CONNECTION FAILED";
                             break;
@@ -255,6 +298,7 @@ namespace HP663xxCtrl {
                             ModelStatusBarItem.Content = "-----";
                             AddressComboBox.IsEnabled = true;
                             VM.InstWorker.InstrumentIsConnected = false;
+                            OutCompMode.IsEnabled = false;
                             break;
 
                         case InstrumentWorker.StateEnum.Measuring:
@@ -801,6 +845,19 @@ namespace HP663xxCtrl {
                 {
                     case "Rect": VM.InstWorker.SetMeasureWindowType(MeasWindowType.Rect); break;
                     case "Hanning": VM.InstWorker.SetMeasureWindowType(MeasWindowType.Hanning); break;
+                }
+            }
+        }
+
+        private void OutCompMode_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (VM != null && VM.InstWorker != null)
+            {
+                switch ((string)((ComboBoxItem)e.AddedItems[0]).Tag)
+                {
+                    case "Low": VM.InstWorker.SetOutputComp(OutputCompensationEnum.Low); break;
+                    case "High": VM.InstWorker.SetOutputComp(OutputCompensationEnum.High); break;
+                    case "High_Always": VM.InstWorker.SetOutputComp(OutputCompensationEnum.High_Always); break;
                 }
             }
         }

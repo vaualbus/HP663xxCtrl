@@ -91,6 +91,10 @@ namespace HP663xxCtrl
         public bool HasOVP { get { return true; } }
         public bool Has1ARange { get; private set; }
 
+        public bool HasOutputComp { get; private set; }
+
+        public bool HasTwoMeasureChannels { get; private set; }
+
         //
         // PRIVATE METHODS
         //
@@ -194,6 +198,108 @@ namespace HP663xxCtrl
         //
         // PUBLIC METHODS
         //
+
+        public HP663xx(IMessageBasedSession visaDev)
+        {
+            dev = visaDev;
+            dev.Clear(); // clear I/O buffer
+            dev.TimeoutMilliseconds = 5000; // 5 seconds
+
+            var IDParts = QueryString("*IDN?");
+            if (IDParts.Length != 4)
+            {
+                dev.Dispose();
+                dev = null;
+                throw new InvalidOperationException("Not a known 663xx supply!");
+            }
+
+            Model = IDParts[1];
+            var ModelUpper = Model.ToUpper();
+            switch (ModelUpper)
+            {
+                case "66312A":
+                case "66332A":
+                    {
+                        HasDVM = false;
+                        HasOutput2 = false;
+                        CurrentModel = ModelUpper == "66312A" ? Models.Model_66312A : Models.Model_66332A;
+                    }
+                    break;
+
+                case "66309B":
+                case "66319B":
+                    HasDVM = false;
+                    HasOutput2 = true;
+                    CurrentModel = ModelUpper == "66309B" ? Models.Model_66309B : Models.Model_66319B;
+                    break;
+
+                case "66309D":
+                case "66319D":
+                    HasDVM = true;
+                    HasOutput2 = true;
+                    CurrentModel = ModelUpper == "66309D" ? Models.Model_66309D : Models.Model_66319D;
+                    break;
+
+                case "66311B":
+                case "66321B":
+                    HasDVM = false;
+                    HasOutput2 = false;
+                    CurrentModel = ModelUpper == "66311B" ? Models.Model_66311B : Models.Model_66321B;
+                    break;
+
+                case "66311D":
+                case "66321D":
+                    HasDVM = true;
+                    HasOutput2 = true;
+                    CurrentModel = ModelUpper == "66311D" ? Models.Model_66311D : Models.Model_66321D;
+                    break;
+
+                default:
+                    dev.Dispose();
+                    dev = null;
+                    throw new InvalidOperationException("Not a known 663xx supply!");
+            }
+
+            HasDataLog = IDParts[3].ToUpper().StartsWith("A.03");
+            if (Model.StartsWith("66319") || Model.StartsWith("66321"))
+            {
+                Has1ARange = true;
+            }
+
+            WriteString("STATUS:PRESET"); // Clear PTR/NTR/ENABLE register
+            EnsurePSCOne();
+            WriteString("*CLS"); // clear status registers
+            WriteString("ABORT");
+            ClearErrors();
+
+            switch (CurrentModel)
+            {
+                case Models.Model_66312A:
+                case Models.Model_66332A:
+                    {
+                        //
+                        // FORMAT is not supported in this instruments. 
+                        //
+                        HasOutputComp = false;
+                        HasTwoMeasureChannels = false;
+                    }
+                    break;
+
+                default:
+                    {
+                        WriteString("FORMAT REAL");
+                        WriteString("FORMat:BORDer NORMAL");
+                        
+                        HasOutputComp = true;
+                        HasTwoMeasureChannels = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
+                            (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
+                    }
+                    break;
+            }
+
+            // Enable the detection of open sense leads
+            WriteString("SENSe:PROTection:STAT ON");
+        }
         public void Reset()
         {
             WriteString("*RST");
@@ -802,100 +908,6 @@ namespace HP663xxCtrl
             return false;
         }
 
-        public HP663xx(IMessageBasedSession visaDev)
-        {
-            dev = visaDev;
-            dev.Clear(); // clear I/O buffer
-            dev.TimeoutMilliseconds = 5000; // 5 seconds
-
-            var IDParts = QueryString("*IDN?");
-            if(IDParts.Length != 4) 
-            {
-                dev.Dispose();
-                dev = null;
-                throw new InvalidOperationException("Not a known 663xx supply!");
-            }
-
-            Model = IDParts[1];
-            var ModelUpper = Model.ToUpper();
-            switch (ModelUpper) 
-            {
-                case "66312A":
-                case "66332A":
-                {
-                    HasDVM = false;
-                    HasOutput2 = false;
-                    CurrentModel = ModelUpper == "66312A" ? Models.Model_66312A : Models.Model_66332A;
-                } break;
-                
-                case "66309B":
-                case "66319B":
-                    HasDVM = false;
-                    HasOutput2 = true;
-                    CurrentModel = ModelUpper == "66309B" ? Models.Model_66309B : Models.Model_66319B;
-                    break;
-
-                case "66309D":
-                case "66319D":
-                    HasDVM = true;
-                    HasOutput2 = true;
-                    CurrentModel = ModelUpper == "66309D" ? Models.Model_66309D : Models.Model_66319D;
-                    break;
-
-                case "66311B":
-                case "66321B":
-                    HasDVM = false; 
-                    HasOutput2 = false;
-                    CurrentModel = ModelUpper == "66311B" ? Models.Model_66311B : Models.Model_66321B;
-                    break;
-
-                case "66311D":
-                case "66321D":
-                    HasDVM = true;
-                    HasOutput2 = true;
-                    CurrentModel = ModelUpper == "66311D" ? Models.Model_66311D : Models.Model_66321D;
-                    break;
-
-                default:
-                    dev.Dispose();
-                    dev = null;
-                    throw new InvalidOperationException("Not a known 663xx supply!");
-            }
-            
-            HasDataLog = IDParts[3].ToUpper().StartsWith("A.03");
-            if (Model.StartsWith("66319") || Model.StartsWith("66321"))
-            {
-                Has1ARange = true;
-            }
-
-            WriteString("STATUS:PRESET"); // Clear PTR/NTR/ENABLE register
-            EnsurePSCOne();
-            WriteString("*CLS"); // clear status registers
-            WriteString("ABORT");
-            ClearErrors();
-
-            switch (CurrentModel)
-            {
-                case Models.Model_66312A:
-                case Models.Model_66332A:
-                {
-                    //
-                    // FORMAT is not supported in this instruments. 
-                    //
-                }
-                break;
-
-                default:
-                {
-                    WriteString("FORMAT REAL");
-                    WriteString("FORMat:BORDer NORMAL");
-                } break;
-            }
-
-            // Enable the detection of open sense leads
-            WriteString("SENSe:PROTection:STAT ON");
-        }
-
         public void SetDisplayText(string text, bool clearIt = false)
         {
             if (clearIt)
@@ -934,12 +946,20 @@ namespace HP663xxCtrl
         // Usually use low capacitance mode, so it's always stable. Manual says high requires C_in >5uF
         public void SetOutputCompensation(OutputCompensationEnum comp) {
             switch (comp) {
-                case OutputCompensationEnum.HighCap:
+                case OutputCompensationEnum.High:
+                {
                     WriteString("OUTPUT:TYPE HIGH");
-                    break;
-                case OutputCompensationEnum.LowCap:
+                } break;
+
+                case OutputCompensationEnum.Low:
+                {
                     WriteString("OUTPUT:TYPE LOW");
-                    break;
+                } break;
+
+                case OutputCompensationEnum.High_Always:
+                {
+                    WriteString("OUTPUT:TYPE H2");
+                } break;
             }
         }
 

@@ -1,17 +1,18 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Ivi.Visa;
+using System;
+using System.CodeDom;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Ivi.Visa;
-using System.CodeDom;
-using ZedGraph;
 using System.Windows;
-using System.Diagnostics;
 using System.Windows.Media.Converters;
+using ZedGraph;
+using static System.Windows.Forms.AxHost;
 
 namespace HP663xxCtrl {
     public class InstrumentWorker {
@@ -54,7 +55,8 @@ namespace HP663xxCtrl {
             ClearDisplay,
             SetDisplayState,
             SetMeasureWindow,
-            RestoreOutState
+            RestoreOutState,
+            SetOutputComp
         }
 
         struct Command {
@@ -78,6 +80,7 @@ namespace HP663xxCtrl {
         public struct StateEventData
         {
             public StateEnum State;
+            public bool HasOutputCompensation;
             public bool HasTwoMeasureChannels;
             public bool HasSeprateEnableChannels;
         }
@@ -99,6 +102,7 @@ namespace HP663xxCtrl {
         public event EventHandler<ProgramDetails> ProgramDetailsReadback;
         DateTime LastRefresh;
 
+        private bool HasOutputCompensation = false;
         private bool HasTwoMeasureChannels = false;
         private bool HasSeprateEnableChannels = false;
 
@@ -128,9 +132,6 @@ namespace HP663xxCtrl {
                     // Copied from example code.
                     visaDev.TerminationCharacter = 10;
                     visaDev.TerminationCharacterEnabled = true;
-
-                    HasTwoMeasureChannels = dev.HasOutput2;
-                    HasSeprateEnableChannels = HasTwoMeasureChannels;
                 }
                 else
                     throw new Exception("unsupported device");
@@ -138,6 +139,15 @@ namespace HP663xxCtrl {
                 if (dev != null)
                 {
                     InstrumentIsConnected = true;
+
+
+                    HasOutputCompensation = dev.HasOutputComp;
+                    HasTwoMeasureChannels = dev.HasTwoMeasureChannels;
+                    HasSeprateEnableChannels = dev.HasOutput2;
+                }
+                else
+                {
+                    throw new Exception("Cannot create isntrument!");
                 }
             }
             catch (Exception)
@@ -147,7 +157,7 @@ namespace HP663xxCtrl {
 
                 if (StateChanged != null)
                 {
-                    StateChanged(this, new StateEventData { State = StateEnum.ConnectionFailed, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
+                    StateChanged(this, new StateEventData { State = StateEnum.ConnectionFailed, HasOutputCompensation = false, HasTwoMeasureChannels = false, HasSeprateEnableChannels = false });
                 }
             }
 
@@ -156,7 +166,7 @@ namespace HP663xxCtrl {
             {
                 if (StateChanged != null)
                 {
-                    StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
+                    StateChanged(this, new StateEventData { State = StateEnum.Connected, HasOutputCompensation = HasOutputCompensation, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
                 }
                 
                 if (ProgramDetailsReadback != null)
@@ -219,6 +229,10 @@ namespace HP663xxCtrl {
                                 ((HP663xx)dev).SetMeasureWindowType((MeasWindowType)cmd.arg);
                                 break;
 
+                            case CommandEnum.SetOutputComp:
+                                dev.SetOutputCompensation((OutputCompensationEnum)cmd.arg);
+                                break;
+
                             default:
                                 throw new Exception("Unhandled command in InstrumentWorker");
                         }
@@ -237,7 +251,7 @@ namespace HP663xxCtrl {
                 dev.Close();
             }
 
-            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Disconnected, HasTwoMeasureChannels = HasTwoMeasureChannels });
+            if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Disconnected, HasOutputCompensation = HasOutputCompensation, HasTwoMeasureChannels = HasTwoMeasureChannels, HasSeprateEnableChannels = HasSeprateEnableChannels });
             if (WorkerDone != null)
                 WorkerDone.Invoke(this, null);
         }
@@ -529,6 +543,15 @@ namespace HP663xxCtrl {
                 cmd = CommandEnum.SetDisplayState,
                 arg = state
             }) ;
+        }
+
+        public void SetOutputComp(OutputCompensationEnum outComp )
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.SetOutputComp,
+                arg = outComp
+            });
         }
 
         public void ClearDisplay()

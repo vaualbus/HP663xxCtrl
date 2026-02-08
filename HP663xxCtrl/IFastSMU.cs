@@ -18,8 +18,9 @@ namespace HP663xxCtrl {
         public DateTime RecordTime;
     }
     public enum OutputCompensationEnum {
-        HighCap,
-        LowCap
+        Low,
+        High,
+        High_Always /* H2 mode, high when instrument is on the first time. */
     }
     public enum CurrentDetectorEnum {
         DC,
@@ -106,6 +107,11 @@ namespace HP663xxCtrl {
         bool HasOutput2{get;}
         bool HasDVM { get; }
         bool HasOVP { get; }
+
+        bool HasOutputComp { get; }
+
+        bool HasTwoMeasureChannels { get;  }
+
         void Reset();
         void SetOCP(bool enabled);
         void Close(bool goToLocal = true);

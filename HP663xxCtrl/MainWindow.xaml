@@ -25,9 +25,44 @@
         <Style TargetType="{x:Type FrameworkElement}" x:Key="OVP_Visibility">
             <Setter Property="Visibility" Value="{Binding HasOVP, Converter={StaticResource BooleanToVisibilityConverter}}" />
         </Style>
+      <Style TargetType="GroupBox">
+        <Setter Property="Padding" Value="4"/>
+        <Setter Property="Background" Value="#FFF5F5"/>
+      </Style>
+
+      <Style TargetType="Button">
+        <Setter Property="Margin" Value="1,1"/>
+      </Style>
+
+      <Style TargetType="ComboBox">
+        <Setter Property="Margin" Value="1,1"/>
+      </Style>
+      
     </Window.Resources>
-    <DockPanel>
-        <Menu DockPanel.Dock="Top">
+  
+    <Grid>
+
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="244"/>
+          <!-- Left panel -->
+          <ColumnDefinition Width="10"/>
+          <!-- GAP -->
+          <ColumnDefinition Width="*"/>
+          <!-- Main content -->
+        </Grid.ColumnDefinitions>
+
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto"/>
+          <!-- Menu -->
+          <RowDefinition Height="Auto"/>
+          <!-- Tabs -->
+          <RowDefinition Height="*"/>
+          <!-- Graph -->
+          <RowDefinition Height="Auto"/>
+          <!-- Status -->
+        </Grid.RowDefinitions>
+      
+        <Menu Grid.Row="0" Grid.ColumnSpan="3">
             <MenuItem Header="_File">
                 <MenuItem Header="E_xit" Click="OnMenuItem_Exit"/>
             </MenuItem>
@@ -40,30 +75,9 @@
                 <MenuItem Header="Download Firmware" Command="{Binding DLFirmwareCommand}"/>
             </MenuItem>
         </Menu>
-        <StatusBar DockPanel.Dock="Bottom" FontFamily="Consolas">
-            <StatusBar.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <Grid>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="auto" />
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                    </Grid>
-                </ItemsPanelTemplate>
-            </StatusBar.ItemsPanel>
-            <StatusBarItem  x:Name="ConnectionStatusBarItem" Content="DISCONNECTED" Grid.Column="0"/>
-            <Separator   Grid.Column="1"/>
-            <StatusBarItem x:Name="ActivityStatusBarItem" Content="IDLE"  Grid.Column="2"/>
-            <Separator   Grid.Column="3"/>
-            <StatusBarItem x:Name="ModelStatusBarItem" Content="-----"  Grid.Column="4"/>
-        </StatusBar>
-        <StackPanel DockPanel.Dock="Left" Width="244">
+            
+        <StackPanel Grid.Row="1" Grid.RowSpan="2"
+                Grid.Column="0" Margin="5,5,0,5">
             <GroupBox Header="Connection" >
                 <StackPanel >
                     <Label Content="Address:" />
@@ -90,7 +104,7 @@
                         </TextBlock.RenderTransform><Run Text="OVP OCP CV CC+"/></TextBlock>
                 </Grid>
             </GroupBox>
-            <GroupBox x:Name="CH2ReadbackGroupBox" Header="Channel 2" Style="{StaticResource Ch2_Visibility}">
+            <GroupBox x:Name="CH2ReadbackGroupBox" Header="Channel 2">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="1*"/>
@@ -120,59 +134,166 @@
                     <TextBlock x:Name="DVMVLabel" Text="+0.--- V" Grid.Row="0" Grid.Column="0"  HorizontalAlignment="Center" Style="{StaticResource TB_BoldFixed}"/>
                 </Grid>
             </GroupBox>
-            <GroupBox Header="Program">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="AUTO"/>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="auto"/>
-                        <RowDefinition Height="auto"/>
-                        <RowDefinition Height="auto"/>
-                        <RowDefinition Height="auto"/>
-                    </Grid.RowDefinitions>
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="1: " />
-                    <TextBlock x:Name="CH2ProgramLabel" Grid.Row="2" Grid.Column="0" Text="2: " Style="{StaticResource Ch2_Visibility}"/>
-                    <TextBlock Grid.Row="0" Grid.Column="1" Text="V" HorizontalAlignment="Center" />
-                    <TextBlock Grid.Row="0" Grid.Column="2" Text="I" HorizontalAlignment="Center" />
-                    <numericInput:DoubleBox x:Name="CH1VTextBox" Grid.Row="1" Grid.Column="1" MinValue="0.0" Value="{Binding V1}" />
-                    <numericInput:DoubleBox x:Name="CH1ITextBox" Grid.Row="1" Grid.Column="2" MinValue="0.0" Value="{Binding I1}"  />
-                    <numericInput:DoubleBox x:Name="CH2VTextBox" Grid.Row="2" Grid.Column="1" MinValue="0.0" Value="{Binding V2}" Style="{StaticResource Ch2_Visibility}" />
-                    <numericInput:DoubleBox x:Name="CH2ITextBox" Grid.Row="2" Grid.Column="2" MinValue="0.0" Value="{Binding I2}" Style="{StaticResource Ch2_Visibility}"/>
-                    <StackPanel Grid.Row="3" Grid.ColumnSpan="3" Orientation="Horizontal" >
-                        <CheckBox x:Name="EnableOutputCheckbox" Content="EN1  " />
-                        <CheckBox x:Name="Enable2OutputCheckbox" Content="EN2  " IsEnabled="False" />
-                        <CheckBox x:Name="OCPCheckbox" Content="OCP" />
-                    </StackPanel>
-                    <DockPanel Grid.Row="4" Grid.ColumnSpan="3"  Style="{StaticResource OVP_Visibility}">
-                        <CheckBox DockPanel.Dock="Left" x:Name="OVPCheckbox" Content="OVP: " VerticalAlignment="Center" />
-                        <numericInput:DoubleBox x:Name="OVPLevelTextBox" Value="{Binding OVPLevel}" CanValueBeNull="True" MinValue="0" MaxValue="22" />
-                    </DockPanel>
-                    <DockPanel Grid.Row="5" Grid.ColumnSpan="3" HorizontalAlignment="Right">
-                        <Button DockPanel.Dock="Right" x:Name="ApplyProgramButton" Content="Apply" Click="ApplyProgramButton_Click" IsEnabled="False" />
-                    </DockPanel>
-                    <DockPanel Grid.Row="6" Grid.ColumnSpan="3" HorizontalAlignment="Right">
-                        <Button DockPanel.Dock="Right" x:Name="ClearProtectionButton" Content="Clear Prot." Click="ClearProtectionButton_Click"  IsEnabled="False"/>
-                    </DockPanel>
-                </Grid>
-            </GroupBox>
+
+          <GroupBox Header="Program">
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="15"/>
+                <!-- Channel label -->
+                <ColumnDefinition Width="*"/>
+                <!-- Voltage -->
+                <ColumnDefinition Width="8"/>
+                <!-- SPACER -->
+                <ColumnDefinition Width="*"/>
+                <!-- Current -->
+                <ColumnDefinition Width="Auto"/>
+                <!-- Enable -->
+              </Grid.ColumnDefinitions>
+
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/> <!-- Header -->
+                <RowDefinition Height="Auto"/> <!-- CH1 -->
+                <RowDefinition Height="6"/> <!-- Spacer -->
+                <RowDefinition Height="Auto"/> <!-- CH2 -->
+                <RowDefinition Height="Auto"/> <!-- Separator 1 -->
+                <RowDefinition Height="Auto"/> <!-- OVP / OCP -->
+                <RowDefinition Height="Auto"/> <!-- Separator 2 -->
+                <RowDefinition Height="Auto"/> <!-- Buttons -->
+              </Grid.RowDefinitions>
+             
+              <!-- Column headers -->
+              <TextBlock Grid.Row="0" Grid.Column="1"
+                         Text="V"
+                         HorizontalAlignment="Center"/>
+
+              <TextBlock Grid.Row="0" Grid.Column="3"
+                         Text="I"
+                         HorizontalAlignment="Center"/>
+
+              <!-- ===== Channel 1 ===== -->
+              <TextBlock Grid.Row="1" Grid.Column="0"
+                         Text="1:"
+                         VerticalAlignment="Center"/>
+
+              <numericInput:DoubleBox x:Name="CH1VTextBox"
+                                      Grid.Row="1" Grid.Column="1"
+                                      MinValue="0.0"
+                                      Value="{Binding V1}"/>
+
+              <numericInput:DoubleBox x:Name="CH1ITextBox"
+                                      Grid.Row="1" Grid.Column="3"
+                                      MinValue="0.0"
+                                      Value="{Binding I1}"/>
+
+              <CheckBox x:Name="EnableOutputCheckbox"
+                        Grid.Row="1" Grid.Column="4"
+                        Content="EN1"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right"
+                        Margin="6,0"/>
+
+              <!-- ===== Channel 2 ===== -->
+              <TextBlock x:Name="CH2ProgramLabel"
+                         Grid.Row="3" Grid.Column="0"
+                         Text="2:"
+                         VerticalAlignment="Center"
+                         Style="{StaticResource Ch2_Visibility}"/>
+
+              <numericInput:DoubleBox x:Name="CH2VTextBox"
+                                      Grid.Row="3" Grid.Column="1"
+                                      MinValue="0.0"
+                                      Value="{Binding V2}"
+                                      Style="{StaticResource Ch2_Visibility}"/>
+
+              <numericInput:DoubleBox x:Name="CH2ITextBox"
+                                      Grid.Row="3" Grid.Column="3"
+                                      MinValue="0.0"
+                                      Value="{Binding I2}"
+                                      Style="{StaticResource Ch2_Visibility}"/>
+
+              <CheckBox x:Name="Enable2OutputCheckbox"
+                        Grid.Row="3" Grid.Column="4"
+                        Content="EN2"
+                        IsEnabled="False"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right"
+                        Margin="6,0"/>
+
+              <!-- ===== Separator ===== -->
+              <Separator Grid.Row="4"
+                         Grid.ColumnSpan="5"
+                         Margin="0,8"/>
+
+              <!-- ===== OVP / OCP ===== -->
+              <DockPanel Grid.Row="5"
+                         Grid.ColumnSpan="4"
+                         VerticalAlignment="Center"
+                         Margin="0,4"
+                         Style="{StaticResource OVP_Visibility}">
+
+                <CheckBox x:Name="OVPCheckbox"
+                          DockPanel.Dock="Left"
+                          Content="OVP:"
+                          VerticalAlignment="Center"
+                          Margin="0,0,8,0"/>
+
+                <numericInput:DoubleBox x:Name="OVPLevelTextBox"
+                                        Value="{Binding OVPLevel}"
+                                        CanValueBeNull="True"
+                                        MinValue="0"
+                                        MaxValue="22"/>
+              </DockPanel>
+
+              <CheckBox x:Name="OCPCheckbox"
+                        Grid.Row="5" Grid.Column="4"
+                        Content="OCP"
+                        VerticalAlignment="Center"
+                        HorizontalAlignment="Right"
+                        Margin="6,0"/>
+
+              <!-- Separator before buttons -->
+              <Separator Grid.Row="6" Grid.ColumnSpan="5" />
+              
+              <!-- ===== Buttons ===== -->
+              
+              <UniformGrid Grid.Row="7"
+                           Grid.ColumnSpan="5"
+                           Rows="1"
+                           Columns="2"
+                           HorizontalAlignment="Stretch"
+                           Margin="0,10,0,0">
+
+                <Button x:Name="ClearProtectionButton"
+                        Content="Clear Prot."
+                        Click="ClearProtectionButton_Click"
+                        IsEnabled="False"
+                        Margin="4,0"/>
+
+                <Button x:Name="ApplyProgramButton"
+                        Content="Apply"
+                        Click="ApplyProgramButton_Click"
+                        IsEnabled="False"
+                        Margin="4,0"/>
+                
+              </UniformGrid>
+            </Grid>
+          </GroupBox>
+          
             <GroupBox Header="Ch. 1 Measurement Mode">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto"/>
                         <ColumnDefinition Width="1*"/>
                         <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="Auto"/>
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition/>
                         <RowDefinition/>
                         <RowDefinition/>
+                        <RowDefinition/>
                     </Grid.RowDefinitions>
+                  
                     <Label Grid.Row="0" Grid.Column="0"  Content="Current Range: " VerticalAlignment="Center"/>
                     <ComboBox Name="CurrentRangeComboBox" Grid.Row="0" Grid.Column="1" Grid.ColumnSpan="2"  AllowDrop="True" SelectedIndex="1" SelectionChanged="ComboBox_SelectionChanged" ItemsSource="{Binding I1Ranges}">
                     </ComboBox>
@@ -188,6 +309,13 @@
                     <ComboBox Name="MeasWindowTypeBox" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" AllowDrop="True" SelectedIndex="0" SelectionChanged="MeasWindowType_SelectionChanged">
                         <ComboBoxItem Tag="Hanning" Content="Hanning" />
                         <ComboBoxItem Tag="Rect"    Content="Rect" />
+                    </ComboBox>
+
+                    <Label Grid.Row="3" Grid.Column="0" Content="Output Compensation" VerticalAlignment="Center" />
+                    <ComboBox Name="OutCompMode" Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="2" AllowDrop="True" SelectedIndex="0" SelectionChanged="OutCompMode_SelectionChanged" >
+                      <ComboBoxItem Tag="Low"   Content="Low" />
+                      <ComboBoxItem Tag="High"  Content="High" />
+                      <ComboBoxItem Tag="High_Always"  Content="High Always" />
                     </ComboBox>
                 </Grid>
             </GroupBox>
@@ -225,7 +353,8 @@
                 </Grid>
             </GroupBox>
         </StackPanel>
-        <TabControl TabStripPlacement="Top" DockPanel.Dock="Top" x:Name="ControlTabs">
+        
+        <TabControl Grid.Row="1" Grid.Column="2" Margin="10,5,10,0" x:Name="ControlTabs">
             <TabItem x:Name="AcquisitionTabItem" Header="Acquisition">
                 <StackPanel Orientation="Horizontal">
                     <GroupBox Header="Acquisition" >
@@ -352,8 +481,33 @@
                 </StackPanel>
             </TabItem>
         </TabControl>
-        <WindowsFormsHost x:Name="ZedGraphHost"  Grid.Column="1" Margin="10">
+      
+        <WindowsFormsHost Grid.Row="2" Grid.Column="2" Margin="10,5,10,10" x:Name="ZedGraphHost">
             <zed:ZedGraphControl x:Name="zgc" />
         </WindowsFormsHost>
-    </DockPanel>
+
+        <StatusBar Grid.Row="4" Grid.ColumnSpan="3" FontFamily="Consolas">
+          <StatusBar.ItemsPanel>
+            <ItemsPanelTemplate>
+              <Grid>
+                <Grid.RowDefinitions>
+                  <RowDefinition Height="*"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="auto" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="auto" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+              </Grid>
+            </ItemsPanelTemplate>
+          </StatusBar.ItemsPanel>
+          <StatusBarItem  x:Name="ConnectionStatusBarItem" Content="DISCONNECTED" Grid.Column="0"/>
+          <Separator   Grid.Column="1"/>
+          <StatusBarItem x:Name="ActivityStatusBarItem" Content="IDLE"  Grid.Column="2"/>
+          <Separator   Grid.Column="3"/>
+          <StatusBarItem x:Name="ModelStatusBarItem" Content="-----"  Grid.Column="4"/>
+        </StatusBar>
+    </Grid>
 </Window>

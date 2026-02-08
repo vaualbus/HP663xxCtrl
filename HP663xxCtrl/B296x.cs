@@ -23,7 +23,13 @@ namespace HP663xxCtrl
         private IMessageBasedSession dev;
         private CultureInfo CI = CultureInfo.InvariantCulture;
 
+        public bool HasOutputComp => true;
+        public bool HasTwoMeasureChannels { get; private set; }
+
         private bool UseTraceBuffer => false;
+        
+        
+
 
         private Stopwatch LoggingStopwatch;
         private OutputEnum OutputStateBeforeMeasurement;
@@ -186,6 +192,7 @@ namespace HP663xxCtrl
                 case "B2962A":
                 case "B2962B":
                     HasOutput2 = true;
+                    HasTwoMeasureChannels = true;
                     break;
 
                 default:
@@ -298,7 +305,7 @@ namespace HP663xxCtrl
 
         public void SetOutputCompensation(OutputCompensationEnum comp)
         {
-            if (comp == OutputCompensationEnum.HighCap)
+            if (comp == OutputCompensationEnum.High)
             {
                 WriteString(":OUT:HCAP 1");
 

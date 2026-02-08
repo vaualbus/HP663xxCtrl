@@ -15,6 +15,10 @@ namespace HP663xxCtrl {
         public bool HasDVM { get; private set; }
         public bool HasOutput2 { get; private set; }
 
+        public bool HasOutputComp => false;
+
+        public bool HasTwoMeasureChannels => false;  //TODO: Check if we can measure both cahnnels here! // { get; private set; }
+
         public bool HasOVP { get { return false; } }
         string ID;
         public void Reset()
@@ -502,12 +506,15 @@ namespace HP663xxCtrl {
         {
             switch (comp)
             {
-                case OutputCompensationEnum.HighCap:
-                    WriteString("OUTPUT:TYPE HIGH");
-                    break;
-                case OutputCompensationEnum.LowCap:
+                case OutputCompensationEnum.Low:
+                {
                     WriteString("OUTPUT:TYPE LOW");
-                    break;
+                } break;
+
+                case OutputCompensationEnum.High:
+                {
+                    WriteString("OUTPUT:TYPE HIGH");
+                } break;
             }
         }
 
