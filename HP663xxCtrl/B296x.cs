@@ -492,7 +492,7 @@ namespace HP663xxCtrl
         }
 
         // LOGGING
-        public void SetupLogging(OutputEnum channel, SenseModeEnum mode, double interval)
+        public void StartLogging(OutputEnum channel, SenseModeEnum mode, double interval)
         {
             int numPoints = 4096;
             double acqInterval = interval;
@@ -572,7 +572,7 @@ namespace HP663xxCtrl
             Query("*OPC?");
         }
 
-        public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum selChannel, SenseModeEnum mode)
+        public LoggerDatapoint[] EndLogging(OutputEnum selChannel, SenseModeEnum mode)
         {
             var ret = new LoggerDatapoint();
             var chNum = (selChannel == OutputEnum.Output_1) ? 1 : 2;
@@ -723,7 +723,7 @@ namespace HP663xxCtrl
         }
 
         // TODO IMPLEMENT        
-        public void StartTransientMeasurement(
+        public void StartMeasure(
             OutputEnum channel, SenseModeEnum mode, int numPoints = 4096,
             double interval = 1.56E-05, double level = double.NaN,
             double hysteresis = 0, int triggerCount = 1,
@@ -736,7 +736,7 @@ namespace HP663xxCtrl
             OutputStateBeforeMeasurement = GetOutputState();
         }
 
-        public MeasArray FinishTransientMeasurement(
+        public MeasArray EndMeasure(
             OutputEnum channel, SenseModeEnum mode, int triggerCount = 1)
         {
             Debug.WriteLine("FinishTransientMeasurement: NOT IMPLEMENT!");

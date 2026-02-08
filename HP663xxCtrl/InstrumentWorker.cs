@@ -278,7 +278,7 @@ namespace HP663xxCtrl {
                 else
                     count = Math.Min(remaining, 4096 / arg.NumPoints);
 
-                dev.StartTransientMeasurement(
+                dev.StartMeasure(
                     channel: arg.SelectedChannel,
                     mode: arg.SenseMode,
                     numPoints: arg.NumPoints,
@@ -300,7 +300,7 @@ namespace HP663xxCtrl {
                     if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Connected, HasTwoMeasureChannels = HasTwoMeasureChannels });
                     return;
                 }
-                var data = dev.FinishTransientMeasurement(channel: arg.SelectedChannel, mode: arg.SenseMode, triggerCount: count);
+                var data = dev.EndMeasure(channel: arg.SelectedChannel, mode: arg.SenseMode, triggerCount: count);
 
                 if (DataAcquired != null)
                     DataAcquired(this, data);
@@ -333,7 +333,7 @@ namespace HP663xxCtrl {
         void DoLog(OutputEnum channel, SenseModeEnum mode, double interval=0) {
             if (StateChanged != null) StateChanged(this, new StateEventData { State = StateEnum.Measuring, HasTwoMeasureChannels = HasTwoMeasureChannels });
             
-            dev.SetupLogging(channel, mode, interval);
+            dev.StartLogging(channel, mode, interval);
 
             var hasExitLoop = false;
             while(true)
@@ -350,7 +350,7 @@ namespace HP663xxCtrl {
                     return;
                 }
 
-                var data = dev.MeasureLoggingPoint(channel, mode);
+                var data = dev.EndLogging(channel, mode);
                 if (LogerDatapointAcquired != null) {
                     foreach(var p in data)
                         LogerDatapointAcquired(this, p);

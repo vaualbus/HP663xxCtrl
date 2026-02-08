@@ -191,7 +191,7 @@ namespace HP663xxCtrl {
         }
 
         System.Diagnostics.Stopwatch DLogStopwatch;
-        public void SetupLogging(OutputEnum channel, SenseModeEnum mode, double interval)
+        public void StartLogging(OutputEnum channel, SenseModeEnum mode, double interval)
         {
             string modeString;
             double nplc = (interval - 400e-6) * 0.9;
@@ -231,7 +231,7 @@ namespace HP663xxCtrl {
             Query("*OPC?");
         }
 
-        public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode)
+        public LoggerDatapoint[] EndLogging(OutputEnum channel, SenseModeEnum mode)
         {
             LoggerDatapoint ret = new LoggerDatapoint();
             double[] rsp;
@@ -273,7 +273,7 @@ namespace HP663xxCtrl {
             return new LoggerDatapoint[] { ret };
         }
 
-        public void StartTransientMeasurement(
+        public void StartMeasure(
             OutputEnum channel,
             SenseModeEnum mode,
             int numPoints = 4096,
@@ -371,7 +371,7 @@ namespace HP663xxCtrl {
             Query("ABORT;*OPC?");
         }
 
-        public MeasArray FinishTransientMeasurement(
+        public MeasArray EndMeasure(
             OutputEnum channel,
             SenseModeEnum mode,
             int triggerCount = 1)

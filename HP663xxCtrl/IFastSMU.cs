@@ -141,15 +141,15 @@ namespace HP663xxCtrl {
 
         string GetSystemErrorStr();
 
-        void SetupLogging(
+        void StartLogging(
             OutputEnum channel,
             SenseModeEnum mode,
             double interval=0
             );     
         
-        LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode);
+        LoggerDatapoint[] EndLogging(OutputEnum channel, SenseModeEnum mode);
 
-        void StartTransientMeasurement(
+        void StartMeasure(
             OutputEnum channel, 
             SenseModeEnum mode,
             int numPoints = 4096,
@@ -161,7 +161,7 @@ namespace HP663xxCtrl {
             int triggerOffset = 0,
             MeasWindowType windowType = MeasWindowType.Null);
 
-        MeasArray FinishTransientMeasurement(
+        MeasArray EndMeasure(
             OutputEnum channel,
             SenseModeEnum mode,
             int triggerCount = 1);

@@ -481,7 +481,7 @@ namespace HP663xxCtrl
             return parts.Select(x => UInt32.Parse(x, System.Globalization.NumberStyles.HexNumber)).ToArray();
         }
 
-        public void SetupLogging(OutputEnum channel,  SenseModeEnum mode, double interval) 
+        public void StartLogging(OutputEnum channel,  SenseModeEnum mode, double interval) 
         {
             int numPoints = 4096;
             double AcqInterval = 15.6e-6;
@@ -541,7 +541,7 @@ namespace HP663xxCtrl
             DLogInOverrun = false;
         }
 
-        public LoggerDatapoint[] MeasureLoggingPoint(OutputEnum channel, SenseModeEnum mode) 
+        public LoggerDatapoint[] EndLogging(OutputEnum channel, SenseModeEnum mode) 
         {
             LoggerDatapoint ret = new LoggerDatapoint();
 
@@ -656,7 +656,7 @@ namespace HP663xxCtrl
             return new LoggerDatapoint[] {ret};
         }
 
-        public void StartTransientMeasurement(
+        public void StartMeasure(
             OutputEnum channel,
             SenseModeEnum mode,
             int numPoints = 4096,
@@ -758,7 +758,7 @@ namespace HP663xxCtrl
             Query("ABORT;*OPC?");
         }
 
-        public MeasArray FinishTransientMeasurement(OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
+        public MeasArray EndMeasure(OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
         {
 
             /*StatusByteEnum stb;
