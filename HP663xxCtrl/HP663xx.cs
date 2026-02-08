@@ -682,10 +682,10 @@ namespace HP663xxCtrl
 
             switch (mode)
             {
-                case SenseModeEnum.CURRENT: modeString = "CURR"; break;
-                case SenseModeEnum.VOLTAGE:  modeString = "VOLT";  break;
-                case SenseModeEnum.DVM:  modeString = "DVM"; break;
-                default: throw new InvalidOperationException("Unknown transient measurement mode");
+                case SenseModeEnum.DVM:     { modeString = "DVM"; } break;
+                case SenseModeEnum.CURRENT: { modeString = "CURR"; } break;
+                case SenseModeEnum.VOLTAGE: { modeString = "VOLT"; } break;
+                default: { throw new InvalidOperationException("Unknown transient measurement mode"); }
             }
 
             // Set the window type
@@ -728,9 +728,9 @@ namespace HP663xxCtrl
                 string slopeStr = "EITH";
                 switch (triggerEdge)
                 {
-                    case TriggerSlopeEnum.Either: slopeStr = "EITH"; break;
-                    case TriggerSlopeEnum.Positive: slopeStr = "POS"; break;
-                    case TriggerSlopeEnum.Negative: slopeStr = "NEG"; break;
+                    case TriggerSlopeEnum.Either:   { slopeStr = "EITH"; } break;
+                    case TriggerSlopeEnum.Positive: { slopeStr = "POS";  }  break;
+                    case TriggerSlopeEnum.Negative: { slopeStr = "NEG";  }  break;
                 }
 
                 WriteString("TRIG:ACQ:COUNT:" + modeString + " " + triggerCount.ToString(CI) + ";" +
@@ -748,16 +748,17 @@ namespace HP663xxCtrl
             WriteString("*OPC");
         }
 
-        public bool IsMeasurementFinished() {
+        public bool IsMeasurementFinished() 
+        {
             return (((int.Parse(Query("*ESR?").Trim(), CI) & 1) == 1));
         }
 
-        public void AbortMeasurement() {
+        public void AbortMeasurement() 
+        {
             Query("ABORT;*OPC?");
         }
 
-        public MeasArray FinishTransientMeasurement(
-            OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
+        public MeasArray FinishTransientMeasurement(OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
         {
 
             /*StatusByteEnum stb;
@@ -774,20 +775,12 @@ namespace HP663xxCtrl
             bool isDVM_measureFetched = false;
             switch (mode)
             {
-                case SenseModeEnum.VOLTAGE:
-                {
-                    WriteString("FETCH:ARRay:VOLTage?");
-                } break;
-
-                case SenseModeEnum.CURRENT:
-                {
-                    WriteString("FETCH:ARRay:CURRent?");
-                } break;
-
                 case SenseModeEnum.DVM:
-                {
-                    isDVM_measureFetched = true;
-                } break;
+                { isDVM_measureFetched = true; } break;
+                case SenseModeEnum.VOLTAGE:
+                { WriteString("FETCH:ARRay:VOLTage?"); } break;
+                case SenseModeEnum.CURRENT:
+                { WriteString("FETCH:ARRay:CURRent?"); } break;
 
                 default: 
                 { } break;
@@ -848,7 +841,6 @@ namespace HP663xxCtrl
 
         public void EnableOutput(OutputEnum channel, bool enabled)
         {
-            // This set of PSU allow to set 
             if ( HasOutput2 )
             {
                 var outNum = channel == OutputEnum.Output_1 ? "1" : "2";
@@ -860,7 +852,8 @@ namespace HP663xxCtrl
             }
         }
 
-        public void SetIV(int channel, double voltage, double current) {
+        public void SetIV(int channel, double voltage, double current) 
+        {
             WriteString(
                 "VOLT"   + (channel == 2 ? "2 " : " ") + voltage.ToString(CI) +
                 ";:CURR" + (channel == 2 ? "2 " : " ") + current.ToString(CI) 
@@ -882,6 +875,7 @@ namespace HP663xxCtrl
                 WriteString("VOLTage:PROTection:STATe ON");
             }
         }
+
         public void SetOCP(bool enabled) 
         {
             WriteString("CURR:PROT:STAT " + (enabled ? "1":"0"));
@@ -898,14 +892,15 @@ namespace HP663xxCtrl
             }
         }
 
-        public static bool SupportsIDN(string idn) {
-            if (idn.Contains(",66309B,") || idn.Contains(",66319B,") ||
+        public static bool SupportsIDN(string idn) 
+        {
+            return (
+                idn.Contains(",66309B,") || idn.Contains(",66319B,") ||
                 idn.Contains(",66309D,") || idn.Contains(",66319D,") ||
                 idn.Contains(",66311B,") || idn.Contains(",66321B,") ||
                 idn.Contains(",66311D,") || idn.Contains(",66321D,") ||
-                idn.Contains(",66312A,") || idn.Contains(",66332A,"))
-                return true;
-            return false;
+                idn.Contains(",66312A,") || idn.Contains(",66332A,")
+            );
         }
 
         public void SetDisplayText(string text, bool clearIt = false)
@@ -936,46 +931,49 @@ namespace HP663xxCtrl
             }
         }
 
-        public void SetCurrentDetector(CurrentDetectorEnum detector) {
-            switch (detector) {
-                case CurrentDetectorEnum.ACDC: WriteString("SENSe:CURRent:DETector ACDC"); break;
-                case CurrentDetectorEnum.DC: WriteString("SENSe:CURRent:DETector DC"); break;
+        public void SetCurrentDetector(CurrentDetectorEnum detector)
+        {
+            switch (detector) 
+            {
+                case CurrentDetectorEnum.DC: 
+                { WriteString("SENSe:CURRent:DETector DC");   }  break;
+                case CurrentDetectorEnum.ACDC:
+                { WriteString("SENSe:CURRent:DETector ACDC"); } break;
             }
         }
 
         // Usually use low capacitance mode, so it's always stable. Manual says high requires C_in >5uF
         public void SetOutputCompensation(OutputCompensationEnum comp) {
-            switch (comp) {
+            switch (comp)
+            {
                 case OutputCompensationEnum.High:
-                {
-                    WriteString("OUTPUT:TYPE HIGH");
-                } break;
+                { WriteString("OUTPUT:TYPE HIGH"); } break;
 
                 case OutputCompensationEnum.Low:
-                {
-                    WriteString("OUTPUT:TYPE LOW");
-                } break;
+                { WriteString("OUTPUT:TYPE LOW");  } break;
 
                 case OutputCompensationEnum.High_Always:
-                {
-                    WriteString("OUTPUT:TYPE H2");
-                } break;
+                {  WriteString("OUTPUT:TYPE H2");  } break;
             }
         }
 
-        string ReadString() {
+        string ReadString()
+        {
             return dev.FormattedIO.ReadLine();
         }
 
-        void WriteString(string msg) {
+        void WriteString(string msg)
+        {
             dev.FormattedIO.WriteLine(msg);
         }
 
         public void Close(bool goToLocal = true)
         {
-            if (dev != null ) {
+            if (dev != null ) 
+            {
                 if (goToLocal) {
-                    if (dev is IGpibSession) {
+                    if (dev is IGpibSession)
+                    {
                         ((IGpibSession)dev).SendRemoteLocalCommand(GpibInstrumentRemoteLocalMode.GoToLocal);
                     }
                 }
