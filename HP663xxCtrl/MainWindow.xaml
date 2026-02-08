@@ -28,6 +28,7 @@
       <Style TargetType="GroupBox">
         <Setter Property="Padding" Value="4"/>
         <Setter Property="Background" Value="#FFF5F5"/>
+        <Setter Property="BorderBrush" Value="DarkOrange"/>
       </Style>
 
       <Style TargetType="Button">
@@ -395,10 +396,11 @@
                 </Grid>
             </GroupBox>
         </StackPanel>
-        
-        <TabControl Grid.Row="1" Grid.Column="2" Margin="10,5,10,0" x:Name="ControlTabs">
+
+      <GroupBox Header="Acquisition"  Grid.Row="1" Grid.Column="2" Margin="10,5,10,0" >
+        <TabControl Grid.Row="1" Grid.Column="2"  x:Name="ControlTabs">
             
-          <TabItem x:Name="AcquisitionTabItem" Header="Acquisition">
+          <TabItem x:Name="AcquisitionTabItem" Header="Measure">
                 <StackPanel Orientation="Horizontal">
                     <GroupBox Header="Acquisition" >
                         <Grid>
@@ -427,8 +429,10 @@
 
                             <Label x:Name="DurationLabel" Grid.Row="2" Grid.Column="0" Content="Time (s): " VerticalAlignment="Center"/>
                             <numericInput:DoubleBox x:Name="DurationTextBox" Grid.Row="2" Grid.Column="1" Value="{Binding AcqDuration}" VerticalAlignment="Center" MinValue="0"/>
+                            
                             <Label x:Name="NumPointsLabel" Grid.Row="3" Grid.Column="0"  Content="Num Pts: " VerticalAlignment="Center"/>
                             <numericInput:IntBox x:Name="NumPtsTextBox" Grid.Row="3" Grid.Column="1" Value="{Binding AcqNumPoints}" VerticalAlignment="Center" MinValue="1" MaxValue="4096"/>
+                            
                             <Label x:Name="NumSegmentsLabel" Grid.Row="4" Grid.Column="0"  Content="Segments: " VerticalAlignment="Center"/>
                             <numericInput:IntBox x:Name="NumSegmentsTextBox" Grid.Row="4" Grid.Column="1" Value="{Binding AcqSegments}" VerticalAlignment="Center" MinValue="1" />
                         </Grid>
@@ -454,9 +458,11 @@
                             </ComboBox>
                             <Label x:Name="TrigLevelLabel" Grid.Column="0" Grid.Row="1" Content="Trigger Level: " VerticalAlignment="Center"/>
                             <numericInput:DoubleBox x:Name="TrigLevelTextBox"   Grid.Row="1" Grid.Column="1" Value="{Binding TriggerLevel}" VerticalAlignment="Center"/>
+                            
                             <TextBlock Text=" A/V"   Grid.Row="1" Grid.Column="2" VerticalAlignment="Center"  />
                             <Label Grid.Row="2" Grid.Column="0"  Content="Hysteresis: " VerticalAlignment="Center"/>
                             <numericInput:DoubleBox x:Name="TrigHystTextBox"   Grid.Row="2" Grid.Column="1"  VerticalAlignment="Center"  MinValue="0" Value="{Binding TriggerHysteresis}" />
+                            
                             <TextBlock Text=" A/V"   Grid.Row="2" Grid.Column="2" VerticalAlignment="Center" Grid.ColumnSpan="2"/>
                             <Label x:Name="SampleOffsetLabel" Grid.Row="3" Grid.Column="0"  Content="Sample Offset: " VerticalAlignment="Center" Grid.ColumnSpan="2"  />
                             <numericInput:IntBox x:Name="SampleOffsetTextBox" Grid.Row="3" Grid.Column="1"  Value="{Binding TriggerOffset}" VerticalAlignment="Center" MinValue="-2000" MaxValue="2000000000" />
@@ -475,9 +481,9 @@
                         <RowDefinition/>
                       </Grid.RowDefinitions>
                       
-                      <Button Grid.Row="0" x:Name="AcquireButton" Content="Acquire" Click="AcquireButton_Click" IsEnabled="False"/>
+                      <Button Grid.Row="0" x:Name="AcquireButton" Content="Start" Click="AcquireButton_Click" IsEnabled="False"/>
                       <Button Grid.Row="1" x:Name="StopAcquireButton" Content="Stop" Click="StopAcquireButton_Click" IsEnabled="False"/>
-                      <Button Grid.Row="2" x:Name="SaveAcquireButton" Content="Save..." Click="SaveAcquireButton_Click" IsEnabled="False"/>
+                      <Button Grid.Row="2" x:Name="SaveAcquireButton" Content="Save" Click="SaveAcquireButton_Click" IsEnabled="False"/>
                     
                   </Grid>
                   </GroupBox>
@@ -517,6 +523,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <Grid.RowDefinitions>
                                 <RowDefinition/>
@@ -524,10 +531,13 @@
                                 <RowDefinition/>
                                 <RowDefinition/>
                             </Grid.RowDefinitions>
-                            <CheckBox x:Name="LoggerMinCheckBox" Content="Min" Grid.Row="0" IsChecked="True" Checked="LoggerCurveCheckBox_Checked"  Unchecked="LoggerCurveCheckBox_Checked"/>
+                          
+                            <CheckBox x:Name="LoggerMinCheckBox"  Content="Min"  Grid.Row="0" IsChecked="True" Checked="LoggerCurveCheckBox_Checked"  Unchecked="LoggerCurveCheckBox_Checked"/>
                             <CheckBox x:Name="LoggerMeanCheckBox" Content="Mean" Grid.Row="1" IsChecked="True" Checked="LoggerCurveCheckBox_Checked"  Unchecked="LoggerCurveCheckBox_Checked"/>
-                            <CheckBox x:Name="LoggerMaxCheckBox" Content="Max" Grid.Row="2" IsChecked="True" Checked="LoggerCurveCheckBox_Checked"  Unchecked="LoggerCurveCheckBox_Checked"/>
-                            <CheckBox x:Name="LoggerRMSCheckBox" Content="RMS" Grid.Row="3" Checked="LoggerCurveCheckBox_Checked" Unchecked="LoggerCurveCheckBox_Checked"/>
+                            <CheckBox x:Name="LoggerMaxCheckBox"  Content="Max"  Grid.Row="2" IsChecked="True" Checked="LoggerCurveCheckBox_Checked"  Unchecked="LoggerCurveCheckBox_Checked"/>
+                            <CheckBox x:Name="LoggerRMSCheckBox"  Content="RMS"  Grid.Row="0" Grid.Column="1" Checked="LoggerCurveCheckBox_Checked" Unchecked="LoggerCurveCheckBox_Checked"/>
+                            <CheckBox x:Name="LoggerLowCheckBox"  Content="Low"  Grid.Row="1" Grid.Column="1" Checked="LoggerCurveCheckBox_Checked" Unchecked="LoggerCurveCheckBox_Checked"/>
+                            <CheckBox x:Name="LoggerHighCheckBox" Content="High" Grid.Row="2" Grid.Column="1" Checked="LoggerCurveCheckBox_Checked" Unchecked="LoggerCurveCheckBox_Checked"/>
                         </Grid>
                     </GroupBox>
                     <GroupBox Header="Actions">
@@ -543,7 +553,7 @@
                             <RowDefinition Height="35"/>
                           </Grid.RowDefinitions>
                         
-                        <Button Grid.Row="0" x:Name="LogButton" Content="Start Logging" Click="LogButton_Click" IsEnabled="False"/>
+                        <Button Grid.Row="0" x:Name="LogButton" Content="Start" Click="LogButton_Click" IsEnabled="False"/>
                         <Button Grid.Row="1" x:Name="StopLoggingButton" Content="Stop" Click="StopLoggingButton_Click" IsEnabled="False"/>
                         <Button Grid.Row="2" x:Name="SaveLogDataButton" Content="Save" Click="SaveLogDataButton_Click" IsEnabled="False"/>
                       </Grid>
@@ -552,6 +562,8 @@
             </TabItem>
           
         </TabControl>
+
+      </GroupBox>
       
         <WindowsFormsHost Grid.Row="2" Grid.Column="2" Margin="10,5,10,10" x:Name="ZedGraphHost">
             <zed:ZedGraphControl x:Name="zgc" />

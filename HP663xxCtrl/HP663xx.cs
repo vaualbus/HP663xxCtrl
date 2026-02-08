@@ -495,9 +495,9 @@ namespace HP663xxCtrl
 
             switch (mode) 
             {
-                case SenseModeEnum.CURRENT: { modeString = "CURR"; } break;
+                case SenseModeEnum.DVM:     { modeString = "DVM";   } break;
+                case SenseModeEnum.CURRENT: { modeString = "CURR";  } break;
                 case SenseModeEnum.VOLTAGE: { modeString = "VOLT";  } break;
-                case SenseModeEnum.DVM: { modeString = "DVM"; } break;
                 default: { throw new InvalidOperationException("Unknown transient measurement mode"); }
             }
 
@@ -513,10 +513,10 @@ namespace HP663xxCtrl
 
                 WriteString(String.Format(
                     "CONF:DLOG {0},{1},{2},{3},1024,IMM",
-                    modeString, currRange, detector,interval));
-                var dlogConfReadback = Query("CONF:DLOG?").Trim();
-                var dlogConfReadbackParts = dlogConfReadback.Split(new char[] { ',' });
-                DLogPeriod = double.Parse(dlogConfReadbackParts[3]);
+                    modeString, currRange, detector, interval));
+
+                var dlogConfReadback = QueryString("CONF:DLOG?");
+                DLogPeriod = double.Parse(dlogConfReadback[3]);
                 WriteString("INIT:NAME DLOG");
                 WriteString("TRIG:ACQ");
                 Query("*ESR?");
@@ -619,8 +619,8 @@ namespace HP663xxCtrl
                 }
             }
 
-            switch(mode) {
-
+            switch(mode)
+            {
                 case SenseModeEnum.CURRENT:
                 {
                     parts = QueryDouble("MEAS:CURR?;:FETCH:CURR:MIN?;MAX?;ACDC?;LOW?;HIGH?");
