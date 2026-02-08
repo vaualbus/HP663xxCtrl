@@ -124,8 +124,6 @@ namespace HP663xxCtrl {
         
         void SetOVP(double ovp);
 
-        void EnableOutput(OutputEnum channel, bool enabled);
-
         void SetDisplayState(DisplayState state);
 
         void SetDisplayText(string val, bool clearIt = false);
@@ -135,20 +133,21 @@ namespace HP663xxCtrl {
         InstrumentState ReadState(bool measureCh2 = true, bool measureDVM = true);
 
         ProgramDetails ReadProgramDetails();
-       
-        // Measurements
-        void AbortMeasurement();
+
+        void RestoreOutState(OutputEnum selectedChannel);
 
         string GetSystemErrorStr();
 
-        void StartLogging(
-            OutputEnum channel,
-            SenseModeEnum mode,
-            double interval=0
-            );     
-        
-        LoggerDatapoint[] EndLogging(OutputEnum channel, SenseModeEnum mode);
+        //
+        // Output
+        //
+        OutputEnum GetOutputState();
 
+        void EnableOutput(OutputEnum channel, bool enabled);
+
+        //
+        // Measure 
+        //
         void StartMeasure(
             OutputEnum channel, 
             SenseModeEnum mode,
@@ -166,10 +165,20 @@ namespace HP663xxCtrl {
             SenseModeEnum mode,
             int triggerCount = 1);
 
-        void RestoreOutState(OutputEnum selectedChannel);
+        void AbortMeasurement();
+
+        //
+        // Logging
+        //
+        void StartLogging(
+            OutputEnum channel,
+            SenseModeEnum mode,
+            double interval = 0
+            );
+
+        LoggerDatapoint[] EndLogging(OutputEnum channel, SenseModeEnum mode);
 
         bool IsMeasurementFinished();
 
-        OutputEnum GetOutputState();
     }
 }
