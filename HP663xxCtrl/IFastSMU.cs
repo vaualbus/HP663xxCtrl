@@ -9,6 +9,7 @@ namespace HP663xxCtrl {
         public SenseModeEnum Mode;
         public double TimeInterval;
         public double[][] Data;
+        public InstrumentState InstrState;
     }
 
     public struct LoggerDatapoint {
@@ -16,6 +17,7 @@ namespace HP663xxCtrl {
         public double Low, High;
         public double t;
         public DateTime RecordTime;
+        public InstrumentState InstrState;
     }
     public enum OutputCompensationEnum {
         Low,

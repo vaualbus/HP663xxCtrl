@@ -392,7 +392,7 @@ namespace HP663xxCtrl
             });
         }
 
-        public void RequestLog(OutputEnum channel,  SenseModeEnum mode, double interval=0) 
+        public void RequestLog(OutputEnum channel, SenseModeEnum mode, double interval=0) 
         {
             if (StopAcquireRequested == true)
             {

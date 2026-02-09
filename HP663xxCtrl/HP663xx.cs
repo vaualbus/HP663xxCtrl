@@ -368,6 +368,12 @@ namespace HP663xxCtrl
         public InstrumentState ReadState(bool measureCh2=true, bool measureDVM=true) {
             InstrumentState ret = new InstrumentState();
             DateTime start = DateTime.Now;
+
+            /* If logging or measure is in progress skip this. */
+            if ( false == IsMeasurementFinished() )
+            {
+                return ret;
+            }
             
             // ~23 ms
             string statusStr = Query("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
@@ -483,10 +489,9 @@ namespace HP663xxCtrl
             return parts.Select(x => UInt32.Parse(x, System.Globalization.NumberStyles.HexNumber)).ToArray();
         }
 
-        public void StartLogging(OutputEnum channel,  SenseModeEnum mode, double interval) 
+        public void StartLogging(OutputEnum channel, SenseModeEnum mode, double interval) 
         {
             int numPoints = 4096;
-            double AcqInterval = 15.6e-6;
             string modeString;
             int triggerOffset = 0;
 
@@ -525,6 +530,8 @@ namespace HP663xxCtrl
             } 
             else
             {
+                double AcqInterval = 15.6e-6;
+
                 // Immediate always has a trigger count of 1
                 WriteString("SENSe:FUNCtion \"" + modeString + "\"");
                 WriteString("SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
@@ -752,14 +759,6 @@ namespace HP663xxCtrl
 
         public MeasArray EndMeasure(OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
         {
-
-            /*StatusByteEnum stb;
-            do {
-                System.Threading.Thread.Sleep(50);
-                stb = (StatusByteEnum)dev.IO.ReadSTB();
-            } while (!stb.HasFlag(StatusByteEnum.MesasgeAvailable));
-            dev.ReadString(); // read the +1 from *OPC?*/
-
             MeasArray res = new MeasArray();
             res.Mode = mode;
             res.Data = new double[triggerCount][];
