@@ -68,7 +68,6 @@ namespace HP663xxCtrl {
             StopAcquireButton.IsEnabled = false;
             ClearProtectionButton.IsEnabled = false;
             LogButton.IsEnabled = false;
-            StopLoggingButton.IsEnabled = false;
             EnableOutputCheckbox.IsEnabled = false;
             Enable2OutputCheckbox.IsEnabled = false;
             OCPCheckbox.IsEnabled = false;
@@ -78,6 +77,9 @@ namespace HP663xxCtrl {
             DisableDisplay_Btn.IsEnabled = false;
             SendText_Btn.IsEnabled = false;
             GetErrors.IsEnabled = false;
+
+            StopLoggingButton.IsEnabled = false;
+            SaveLogDataButton.IsEnabled = false;
         }
 
         System.Drawing.Color[] CurveColors = new System.Drawing.Color[] {
@@ -508,6 +510,8 @@ namespace HP663xxCtrl {
                 AcquireButton.IsEnabled = false;
                 ApplyProgramButton.IsEnabled = false;
                 ClearProtectionButton.IsEnabled = false;
+
+                LogButton.IsEnabled = false;
                 StopLoggingButton.IsEnabled = true;
                 SaveLogDataButton.IsEnabled = false;
 
@@ -558,6 +562,7 @@ namespace HP663xxCtrl {
             VM.InstWorker.StopAcquireRequested = true;
             RestoreStateRequired = true;
             SaveLogDataButton.IsEnabled = true;
+            LogButton.IsEnabled = true;
             VM.InstWorker.CurrentSelectedChannel = GetSelectedChannel();
         }
 
