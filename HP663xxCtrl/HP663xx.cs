@@ -750,16 +750,6 @@ namespace HP663xxCtrl
             WriteString("*OPC");
         }
 
-        public bool IsMeasurementFinished() 
-        {
-            return (((int.Parse(Query("*ESR?").Trim(), CI) & 1) == 1));
-        }
-
-        public void AbortMeasurement() 
-        {
-            Query("ABORT;*OPC?");
-        }
-
         public MeasArray EndMeasure(OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
         {
 
@@ -801,8 +791,15 @@ namespace HP663xxCtrl
                 }
             }
             else
-            { 
-                data = dev.FormattedIO.ReadBinaryBlockOfSingle();
+            {
+                if ( CurrentModel == Models.Model_66312A || CurrentModel == Models.Model_66332A )
+                {
+                    data = dev.FormattedIO.ReadLineListOfSingle();
+                }
+                else
+                {
+                    data = dev.FormattedIO.ReadBinaryBlockOfSingle();
+                }
             }
 
             int numPoints = data.Length / triggerCount;
@@ -834,6 +831,16 @@ namespace HP663xxCtrl
             }
             
             return res;
+        }
+
+        public bool IsMeasurementFinished()
+        {
+            return (((int.Parse(Query("*ESR?").Trim(), CI) & 1) == 1));
+        }
+
+        public void AbortMeasurement()
+        {
+            Query("ABORT;*OPC?");
         }
 
         public void ClearProtection() 

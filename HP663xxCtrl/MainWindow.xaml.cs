@@ -49,6 +49,7 @@ namespace HP663xxCtrl {
             //
             // Add default intr address ( my home setup (: )
             //
+            AddressComboBox.Items.Add("ASRL19::INSTR");
             AddressComboBox.Items.Add("GPIB0::5::INSTR");
             AddressComboBox.Items.Add("GPIB0::10::INSTR");
             AddressComboBox.SelectedIndex = 0;
@@ -477,28 +478,24 @@ namespace HP663xxCtrl {
 
         void HandleLogDatapoint(object sender, LoggerDatapoint dp) {
 
-            // Add data to the data record, and overwrite the sampling period (it should be the same
-            // for all datapoints)
-            // AcqDataRecord.SamplingPeriod = dp.RecordTime;
-            //var pointData = new double[] { dp.Mean, dp.Min, dp.Max };
-            //AcqDataRecord.DataSeries.AddRange(pointData.S);
-
             if (!double.IsNaN(dp.Min))
                 zgc.GraphPane.CurveList[0].AddPoint(
-                    dp.t,
-                    dp.Min);
+                    dp.t, dp.Min);
             if(!double.IsNaN(dp.Mean))
                 zgc.GraphPane.CurveList[1].AddPoint(
-                    dp.t,
-                    dp.Mean);
+                    dp.t, dp.Mean);
             if(!double.IsNaN(dp.Max))
             zgc.GraphPane.CurveList[2].AddPoint(
-                dp.t,
-                dp.Max);
+                dp.t, dp.Max);
             if(!double.IsNaN(dp.RMS))
                 zgc.GraphPane.CurveList[3].AddPoint(
-                    dp.t,
-                    dp.RMS);
+                    dp.t, dp.RMS);
+            if (!double.IsNaN(dp.Low))
+                zgc.GraphPane.CurveList[4].AddPoint(
+                    dp.t, dp.Low);
+            if (!double.IsNaN(dp.High))
+                zgc.GraphPane.CurveList[5].AddPoint(
+                    dp.t, dp.High);
             zgc.AxisChange();
             zgc.Invalidate();
         }
@@ -519,11 +516,15 @@ namespace HP663xxCtrl {
                 zgc.GraphPane.AddCurve("Mean", new double[0], new double[0], System.Drawing.Color.Black);
                 zgc.GraphPane.AddCurve("Max", new double[0], new double[0], System.Drawing.Color.Red);
                 zgc.GraphPane.AddCurve("RMS", new double[0], new double[0], System.Drawing.Color.Red);
+                zgc.GraphPane.AddCurve("Low", new double[0], new double[0], System.Drawing.Color.Green);
+                zgc.GraphPane.AddCurve("High", new double[0], new double[0], System.Drawing.Color.DarkViolet);
 
                 zgc.GraphPane.CurveList[0].IsVisible = LoggerMinCheckBox.IsChecked.Value;
                 zgc.GraphPane.CurveList[1].IsVisible = LoggerMeanCheckBox.IsChecked.Value;
                 zgc.GraphPane.CurveList[2].IsVisible = LoggerMaxCheckBox.IsChecked.Value;
                 zgc.GraphPane.CurveList[3].IsVisible = LoggerRMSCheckBox.IsChecked.Value;
+                zgc.GraphPane.CurveList[4].IsVisible = LoggerLowCheckBox.IsChecked.Value;
+                zgc.GraphPane.CurveList[5].IsVisible = LoggerHighCheckBox.IsChecked.Value;
                 ZedgraphLoggingMode = true;
 
                 SenseModeEnum mode;
