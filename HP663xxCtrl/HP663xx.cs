@@ -287,8 +287,9 @@ namespace HP663xxCtrl
                     WriteString("SENSe:PROTection:STAT ON");
 
                     HasOutputComp = true;
-                    HasTwoMeasureChannels = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
-                        (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
+                    HasOutput2 = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
+                                (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
+                    HasTwoMeasureChannels = false;
                 }
                 break;
             }
@@ -323,7 +324,7 @@ namespace HP663xxCtrl
                 OVP = (parts[3] == "1"),
                 OVPVal = double.Parse(parts[4],CI),
                 OCP = (parts[5] == "1"),
-                V2 = HasOutput2 ? double.Parse(parts[6],CI):double.NaN,
+                V2 = HasOutput2 ? double.Parse(parts[6],CI)  : double.NaN,
                 I2 = HasOutput2 ? double.Parse(parts[7], CI) : double.NaN,
                 HasDVM = HasDVM,
                 HasOutput2 = HasOutput2,
@@ -372,9 +373,19 @@ namespace HP663xxCtrl
                 (QuestionableStatusEnum)int.Parse(statuses[1], CI)
             );
 
+            bool out2Enabled = false;
+            if (HasOutput2)
+            {
+                var resp = QueryString("OUTP2?");
+                if ( resp.Length == 1)
+                {
+                    out2Enabled = ( resp[0] == "1" );
+                }
+            }
+
             ret.IRange = double.Parse(statuses[2],CI);
             ret.OutputEnabled1 = statuses[3] == "1";
-            ret.OutputEnabled2 = true; // Out2 follow out 1.
+            ret.OutputEnabled2 = out2Enabled; // Out2 follow out 1.
             ret.OVP = statuses[4] == "1";
             ret.OCP = statuses[5] == "1";
 
