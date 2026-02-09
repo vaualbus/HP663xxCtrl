@@ -419,7 +419,7 @@
                             <StackPanel Grid.ColumnSpan="3" Orientation="Horizontal">
                                 <RadioButton GroupName="AcqSenseMode" x:Name="AcqVoltageRadioButton"  Tag="V" Content="Voltage "/>
                                 <RadioButton GroupName="AcqSenseMode" x:Name="AcqCurrentRadioButton" Tag="I" Content="Current " IsChecked="True"/>
-                                <RadioButton GroupName="AcqSenseMode" x:Name="AcqDVMRadioButton" Tag="DVM" Content="DVM "/>
+                                <RadioButton GroupName="AcqSenseMode" x:Name="AcqDVMRadioButton" Tag="DVM" Content="DVM " IsEnabled="False" />
                             </StackPanel>
 
                             <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Grid.Row="1">

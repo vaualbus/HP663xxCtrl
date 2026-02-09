@@ -64,6 +64,7 @@ namespace HP663xxCtrl
         public struct StateEventData
         {
             public StateEnum State;
+            public bool HasDVM;
             public bool HasOutputCompensation;
             public bool HasTwoMeasureChannels;
             public bool HasSeprateEnableChannels;
@@ -75,6 +76,7 @@ namespace HP663xxCtrl
         private IFastSMU dev = null;
         private BlockingCollection<Command> EventQueue;
         private volatile bool StopRequested = false;
+        private bool HasDVM = false;
         private bool HasOutputCompensation = false;
         private bool HasTwoMeasureChannels = false;
         private bool HasSeprateEnableChannels = false;
@@ -547,7 +549,7 @@ namespace HP663xxCtrl
                 {
                     InstrumentIsConnected = true;
 
-
+                    HasDVM = dev.HasDVM;
                     HasOutputCompensation = dev.HasOutputComp;
                     HasTwoMeasureChannels = dev.HasTwoMeasureChannels;
                     HasSeprateEnableChannels = dev.HasOutput2;
@@ -564,6 +566,7 @@ namespace HP663xxCtrl
 
                 if (StateChanged != null)
                 {
+                    HasDVM = false;
                     HasOutputCompensation = false;
                     HasTwoMeasureChannels = false;
                     HasSeprateEnableChannels = false;

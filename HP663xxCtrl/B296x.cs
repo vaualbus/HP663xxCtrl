@@ -563,7 +563,7 @@ namespace HP663xxCtrl
                 WriteString($":TRIG{chNum}:COUN {numPoints}");
 
                 // Start the measure by trigger it.
-                // WriteString(":init (@1)"); // TODO: Handle channel 2...
+                // WriteString(":init (@1)");
                 WriteString($":ARM:ACQ (@{chNum})");
             }
 

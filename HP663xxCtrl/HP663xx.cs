@@ -385,6 +385,7 @@ namespace HP663xxCtrl
             ret.OVP = statuses[4] == "1";
             ret.OCP = statuses[5] == "1";
 
+            //
             // Must measure each thing individually
             // Default is 2048 points, with 46.8us rate
             // This is 95.8 ms; about 6 PLC in America, or 5 in other places.
@@ -398,6 +399,7 @@ namespace HP663xxCtrl
             WriteString("TRIG:ACQ:SOUR INT;COUNT:VOLT 1;:TRIG:ACQ:COUNT:CURR 1");
             WriteString("SENS:SWE:POIN 2048; TINT 46.8e-6");
             WriteString("SENS:SWE:OFFS:POIN 0;:SENS:WIND HANN");
+           
             // Channel is about 30 ms
             ret.V = Double.Parse(Query("MEAS:VOLT?"),CI);
             ret.I = Double.Parse(Query("MEAS:CURR?"),CI);

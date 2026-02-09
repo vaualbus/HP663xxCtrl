@@ -53,6 +53,8 @@ namespace HP663xxCtrl {
             AddressComboBox.Items.Add("GPIB0::10::INSTR");
             AddressComboBox.SelectedIndex = 0;
 
+            AddressComboBox.IsEnabled = true;
+
             // Disable all U Iitems by default.
             OutCompMode.IsEnabled = false;
             CurrentRangeComboBox.IsEnabled = false;
@@ -66,7 +68,6 @@ namespace HP663xxCtrl {
             ClearProtectionButton.IsEnabled = false;
             LogButton.IsEnabled = false;
             StopLoggingButton.IsEnabled = false;
-            AddressComboBox.IsEnabled = false;
             EnableOutputCheckbox.IsEnabled = false;
             Enable2OutputCheckbox.IsEnabled = false;
             OCPCheckbox.IsEnabled = false;
@@ -202,6 +203,7 @@ namespace HP663xxCtrl {
 
                             ConnectButton.IsEnabled = false;
                             DisconnectButton.IsEnabled = true;
+                            MeasWindowTypeBox.IsEnabled = true;
 
                             ConnectionStatusBarItem.Content = "CONNECTED";
                             AcquireButton.IsEnabled = true;
@@ -226,7 +228,8 @@ namespace HP663xxCtrl {
                             SendText_Btn.IsEnabled = true;
                             GetErrors.IsEnabled = true;
 
-
+                            AcqDVMRadioButton.IsEnabled = eventData.HasDVM;
+                            LogDVMRadioButton.IsEnabled = eventData.HasDVM;
 
                             OutCompMode.IsEnabled = eventData.HasOutputCompensation;
 
