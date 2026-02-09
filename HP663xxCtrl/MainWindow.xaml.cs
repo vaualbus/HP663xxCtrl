@@ -549,11 +549,11 @@ namespace HP663xxCtrl {
                     // Value is invalid, get default value
                     interval = 0;
                 }
-                
-                VM.InstWorker.RequestLog(GetSelectedChannel(), mode, interval);
 
-                SelectedLogChannel = selectedChannel;
                 OldOutState = GetOutState();
+                SelectedLogChannel = selectedChannel;
+
+                VM.InstWorker.RequestLog(GetSelectedChannel(), mode, interval);
             }
         }
 

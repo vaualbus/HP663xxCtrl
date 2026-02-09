@@ -89,7 +89,6 @@ namespace HP663xxCtrl
         public bool HasDVM { get; private set; }
         public bool HasOutput2 { get; private set; }
         public bool HasOVP { get { return true; } }
-        public bool Has1ARange { get; private set; }
 
         public bool HasOutputComp { get; private set; }
 
@@ -261,10 +260,6 @@ namespace HP663xxCtrl
             }
 
             HasDataLog = IDParts[3].ToUpper().StartsWith("A.03");
-            if (Model.StartsWith("66319") || Model.StartsWith("66321"))
-            {
-                Has1ARange = true;
-            }
 
             WriteString("STATUS:PRESET"); // Clear PTR/NTR/ENABLE register
             EnsurePSCOne();
@@ -276,29 +271,27 @@ namespace HP663xxCtrl
             {
                 case Models.Model_66312A:
                 case Models.Model_66332A:
-                    {
-                        //
-                        // FORMAT is not supported in this instruments. 
-                        //
-                        HasOutputComp = false;
-                        HasTwoMeasureChannels = false;
-                    }
-                    break;
+                {
+                    //
+                    // FORMAT is not supported in this instruments. 
+                    //
+                    HasOutputComp = false;
+                    HasTwoMeasureChannels = false;
+                }
+                break;
 
                 default:
-                    {
-                        WriteString("FORMAT REAL");
-                        WriteString("FORMat:BORDer NORMAL");
-                        
-                        HasOutputComp = true;
-                        HasTwoMeasureChannels = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
-                            (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
-                    }
-                    break;
-            }
+                {
+                    WriteString("FORMAT REAL");
+                    WriteString("FORMat:BORDer NORMAL");
+                    WriteString("SENSe:PROTection:STAT ON");
 
-            // Enable the detection of open sense leads
-            WriteString("SENSe:PROTection:STAT ON");
+                    HasOutputComp = true;
+                    HasTwoMeasureChannels = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
+                        (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
+                }
+                break;
+            }
         }
         public void Reset()
         {
@@ -316,15 +309,15 @@ namespace HP663xxCtrl
 
         public ProgramDetails ReadProgramDetails()
         {
-            string response = Query("OUTP?;VOLT?;CURR?;"
+            string response = Query("OUTP1?;VOLT?;CURR?;"
                 + ":VOLT:PROT:STAT?;:VOLT:PROT?;:CURR:PROT:STAT?" +
-                (HasOutput2 ? ";:VOLT2?;CURR2?"  : "")).Trim();
+                (HasOutput2 ? ";:VOLT2?;CURR2?;OUTP2?"  : "")).Trim();
 
             string[] parts = response.Split(new char[] { ';' });
             ProgramDetails details = new ProgramDetails() 
             {
                 Enabled1 = (parts[0] == "1"),
-                Enabled2 = false,
+                Enabled2 = HasOutput2 ? (parts[8] == "1") : false,
                 V1 = double.Parse(parts[1],CI),
                 I1 = double.Parse(parts[2],CI),
                 OVP = (parts[3] == "1"),
@@ -369,12 +362,6 @@ namespace HP663xxCtrl
             InstrumentState ret = new InstrumentState();
             DateTime start = DateTime.Now;
 
-            /* If logging or measure is in progress skip this. */
-            if ( false == IsMeasurementFinished() )
-            {
-                return ret;
-            }
-            
             // ~23 ms
             string statusStr = Query("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
                 ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?").Trim();
@@ -662,6 +649,10 @@ namespace HP663xxCtrl
 
             ret.t = LoggingStopwatch.Elapsed.TotalSeconds;
             ret.RecordTime = DateTime.Now;
+
+            // Read the current INSTR state, so we can update UI.
+            ret.InstrState = ReadState(HasOutput2, HasDVM);
+
             return new LoggerDatapoint[] {ret};
         }
 
@@ -700,7 +691,7 @@ namespace HP663xxCtrl
             // Set the window type
             SetMeasWindowType(windowType);
 
-            WriteString($"SENSe:FUNCtion {modeString}");
+            WriteString($"SENSe:FUNCtion \"{modeString}\"");
             if (numPoints < 1 || numPoints > 4096)
             {
                 throw new InvalidOperationException("Number of points must be betweer 1 and 4096");
@@ -722,7 +713,8 @@ namespace HP663xxCtrl
                 interval = 31200; /* Max sampling time. */
             }
 
-            WriteString("SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
+            WriteString(
+                "SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
                 "TINTerval " + interval.ToString(CI) + ";" +
                 "OFFSET:POINTS " + triggerOffset.ToString(CI));
 
@@ -742,10 +734,12 @@ namespace HP663xxCtrl
                     case TriggerSlopeEnum.Negative: { slopeStr = "NEG";  }  break;
                 }
 
-                WriteString("TRIG:ACQ:COUNT:" + modeString + " " + triggerCount.ToString(CI) + ";" +
+                WriteString(
+                    "TRIG:ACQ:COUNT:" + modeString + " " + triggerCount.ToString(CI) + ";" +
                     ":TRIG:ACQ:LEVEL:" + modeString + " " + level.ToString(CI) + ";" +
                     ":TRIG:ACQ:SLOPE:" + modeString + " " + slopeStr + ";" +
-                    ":TRIG:ACQ:HYST:" + modeString + " " + hysteresis.ToString(CI));
+                    ":TRIG:ACQ:HYST:" + modeString + " " + hysteresis.ToString(CI)
+                );
 
                 WriteString("TRIG:ACQ:SOURCE INT");
                 WriteString("ABORT;*WAI");
@@ -828,6 +822,9 @@ namespace HP663xxCtrl
                     res.TimeInterval = 0;
                 }
             }
+
+            // Read the current INSTR state, so we can update UI.
+            res.InstrState = ReadState( HasOutput2, HasDVM);
             
             return res;
         }
@@ -1052,9 +1049,17 @@ namespace HP663xxCtrl
                     ret = new double[] { 0.02, 5 };
                 } break;
 
+                case Models.Model_66319B:
+                case Models.Model_66319D:
+                case Models.Model_66321B:
+                case Models.Model_66321D:
+                {
+                    ret = new double[] { 0.02, 1, 3 };
+                } break;
+
                 default:
                 {
-                    ret = Has1ARange ? new double[] { 0.02, 1, 3 } : new double[] { 0.02, 1 };
+                    ret = new double[] { 0.02, 1 };
                 } break;
             }
 
