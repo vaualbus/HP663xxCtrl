@@ -233,8 +233,9 @@ namespace HP663xxCtrl {
 
                             AcqDVMRadioButton.IsEnabled = eventData.HasDVM;
                             LogDVMRadioButton.IsEnabled = eventData.HasDVM;
-
                             OutCompMode.IsEnabled = eventData.HasOutputCompensation;
+
+                            VM.HasChannel2 = eventData.HasSeprateEnableChannels;
 
                             if (RestoreStateRequired)
                             {

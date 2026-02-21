@@ -489,7 +489,6 @@ namespace HP663xxCtrl
 
         public void StartLogging(OutputEnum channel, SenseModeEnum mode, double interval) 
         {
-            int numPoints = 4096;
             string modeString;
             int triggerOffset = 0;
 
@@ -528,16 +527,17 @@ namespace HP663xxCtrl
             } 
             else
             {
-                double AcqInterval = 15.6e-6;
+                int numPoints = 2048;
+                double AcqInterval = 46.8e-6;
 
                 // Immediate always has a trigger count of 1
                 WriteString("SENSe:FUNCtion \"" + modeString + "\"");
                 WriteString("SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
-                    "TINTerval " + AcqInterval.ToString(CI) + ";" +
+                    "SENSe:SWEep:TINT " + AcqInterval.ToString(CI) + ";" +
                     "OFFSET:POINTS " + triggerOffset.ToString(CI));
                 WriteString("TRIG:ACQ:SOURCE BUS");
                 WriteString("ABORT;*WAI");
-                //WriteString("INIT:NAME ACQ;:TRIG:ACQ");
+
 
                 Query("*OPC?");
             }
@@ -630,7 +630,7 @@ namespace HP663xxCtrl
             {
                 case SenseModeEnum.CURRENT:
                 {
-                    parts = QueryDouble("MEAS:CURR?;:FETCH:CURR:MIN?;MAX?;ACDC?;LOW?;HIGH?");
+                    parts = QueryDouble("MEAS:CURR?;:MEAS:CURR:MIN?;MAX?;ACDC?;LOW?;HIGH?");
                     ret.Mean = parts[0];
                     ret.Min  = parts[1];
                     ret.Max  = parts[2];
@@ -641,7 +641,7 @@ namespace HP663xxCtrl
 
                 case SenseModeEnum.VOLTAGE:
                 {
-                    parts = QueryDouble("MEAS:VOLT?;:FETCH:VOLT:MIN?;MAX?;ACDC?LOW?;HIGH?");
+                    parts = QueryDouble("MEAS:VOLT?;:MEAS:VOLT:MIN?;MAX?;ACDC?LOW?;HIGH?");
                     ret.Mean = parts[0];
                     ret.Min = parts[1];
                     ret.Max = parts[2];

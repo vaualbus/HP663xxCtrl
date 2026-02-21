@@ -307,8 +307,11 @@ namespace HP663xxCtrl
 
                 if (StopAcquireRequested || StopRequested)
                 {
-                    dev.AbortMeasurement(); // TODO: Why call measure here? Are measure and log stopped the same?=Rename this than StopAcquisition()
-                    if (StateChanged != null) StateChanged(this, GetStateData(StateEnum.Connected));
+                    dev.AbortMeasurement();
+                    if (StateChanged != null)
+                    {
+                        StateChanged(this, GetStateData(StateEnum.Connected));
+                    }
                     return;
                 }
 
@@ -533,6 +536,9 @@ namespace HP663xxCtrl
                 else if (HP663xx.SupportsIDN(idn))
                 {
                     dev = new HP663xx(visaDev);
+                    // Copied from example code.
+                    visaDev.TerminationCharacter = 10;
+                    visaDev.TerminationCharacterEnabled = true;
                 }
                 else if (B296x.SupportsIDN(idn))
                 {

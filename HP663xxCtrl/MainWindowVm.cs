@@ -12,6 +12,7 @@ using System.Windows;
 using Microsoft.Win32;
 
 namespace HP663xxCtrl  {
+
     public class MainWindowVm : ViewModelBase {
 
         public InstrumentWorker InstWorker;
@@ -32,7 +33,8 @@ namespace HP663xxCtrl  {
             get { return _I1Ranges; }
             set { this.Set(ref _I1Ranges, value); }
         }
-        bool _HasChannel2 = true;
+
+        bool _HasChannel2 = false;
         public bool HasChannel2 {
             get { return _HasChannel2; }
             set { Set(ref _HasChannel2, value); }

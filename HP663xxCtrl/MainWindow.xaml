@@ -38,6 +38,10 @@
       <Style TargetType="ComboBox">
         <Setter Property="Margin" Value="1,1"/>
       </Style>
+
+      <Style x:Key="ChannelHiddenAtStartup" TargetType="UIElement">
+        <Setter Property="Visibility" Value="Hidden"/>
+      </Style>
       
     </Window.Resources>
   
@@ -167,7 +171,7 @@
                 <RowDefinition Height="Auto"/> <!-- Separator 2 -->
                 <RowDefinition Height="Auto"/> <!-- Buttons -->
               </Grid.RowDefinitions>
-             
+
               <!-- Column headers -->
               <TextBlock Grid.Row="0" Grid.Column="1"
                          Text="V"
@@ -179,8 +183,8 @@
 
               <!-- ===== Channel 1 ===== -->
               <TextBlock Grid.Row="1" Grid.Column="0"
-                         Text="1:"
-                         VerticalAlignment="Center"/>
+                          Text="1:"
+                          VerticalAlignment="Center"/>
 
               <numericInput:DoubleBox x:Name="CH1VTextBox"
                                       Grid.Row="1" Grid.Column="1"
@@ -198,13 +202,13 @@
                         VerticalAlignment="Center"
                         HorizontalAlignment="Right"
                         Margin="6,0"/>
-
+              
               <!-- ===== Channel 2 ===== -->
               <TextBlock x:Name="CH2ProgramLabel"
-                         Grid.Row="3" Grid.Column="0"
-                         Text="2:"
-                         VerticalAlignment="Center"
-                         Style="{StaticResource Ch2_Visibility}"/>
+                          Grid.Row="3" Grid.Column="0"
+                          Text="2:"
+                          VerticalAlignment="Center"
+                          Style="{StaticResource Ch2_Visibility}"/>
 
               <numericInput:DoubleBox x:Name="CH2VTextBox"
                                       Grid.Row="3" Grid.Column="1"
@@ -224,12 +228,14 @@
                         IsEnabled="False"
                         VerticalAlignment="Center"
                         HorizontalAlignment="Right"
-                        Margin="6,0"/>
+                        Margin="6,0"
+                        Style="{StaticResource Ch2_Visibility}" />
+
 
               <!-- ===== Separator ===== -->
               <Separator Grid.Row="4"
-                         Grid.ColumnSpan="5"
-                         Margin="0,8"/>
+                          Grid.ColumnSpan="5"
+                          Margin="0,8"/>
 
               <!-- ===== OVP / OCP ===== -->
               <DockPanel Grid.Row="5"

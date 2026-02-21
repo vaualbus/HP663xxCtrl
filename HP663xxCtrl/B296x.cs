@@ -27,10 +27,7 @@ namespace HP663xxCtrl
         public bool HasTwoMeasureChannels { get; private set; }
 
         private bool UseTraceBuffer => false;
-        
-        
-
-
+             
         private Stopwatch LoggingStopwatch;
         private OutputEnum OutputStateBeforeMeasurement;
 
