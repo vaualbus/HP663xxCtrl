@@ -718,14 +718,17 @@ namespace HP663xxCtrl
             {
                 interval = 15.6e-6;
             }
-            if (interval > 1e4)
-            {
-                interval = 1e4;
-            }
-            /*if (interval > 31200)
+            if (interval > 31200)
             {
                 interval = 31200;
-            }*/
+            }
+
+            /* DVM has fixed num of points and interval. */
+            if (modeString == "DVM")
+            {
+                interval = 15.6e-6;
+                numPoints = 2046;
+            }
                   
             WriteString(
                 "SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
@@ -780,7 +783,6 @@ namespace HP663xxCtrl
                 { WriteString("FETCH:ARRay:VOLTage?"); } break;
                 case SenseModeEnum.CURRENT:
                 { WriteString("FETCH:ARRay:CURRent?"); } break;
-
                 default: 
                 { } break;
             }
@@ -788,7 +790,7 @@ namespace HP663xxCtrl
             float[] data = null;
             if ( isDVM_measureFetched )
             {
-                int sampleCount = 128;
+                int sampleCount = 2048;
                 data = new float[sampleCount];
 
                 for (int i = 0; i < sampleCount; i++)

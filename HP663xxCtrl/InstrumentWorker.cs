@@ -108,6 +108,7 @@ namespace HP663xxCtrl
             return new StateEventData
             {
                 State = state,
+                HasDVM = HasDVM,
                 HasOutputCompensation = HasOutputCompensation,
                 HasTwoMeasureChannels = HasTwoMeasureChannels,
                 HasSeprateEnableChannels = HasSeprateEnableChannels,

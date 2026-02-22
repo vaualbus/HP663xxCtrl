@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -82,11 +83,30 @@ namespace HP663xxCtrl {
             SaveLogDataButton.IsEnabled = false;
         }
 
-        System.Drawing.Color[] CurveColors = new System.Drawing.Color[] {
-            System.Drawing.Color.Black, 
-            System.Drawing.Color.Red,
-            System.Drawing.Color.Blue, 
-            System.Drawing.Color.Green
+        Color[] CurveColors = new[] {
+            Color.Black,
+            Color.Blue,
+            Color.Red,
+            Color.Green,
+            Color.Orange,
+            Color.Purple,
+            Color.Brown,
+            Color.DarkCyan,
+            Color.Magenta,
+            Color.Goldenrod,
+            Color.DarkRed,
+
+            // Custom colors for better distinction
+            Color.FromArgb(0, 128, 255),    // Bright Blue
+            Color.FromArgb(220, 20, 60),    // Crimson
+            Color.FromArgb(34, 139, 34),    // Forest Green
+            Color.FromArgb(255, 140, 0),    // Dark Orange
+            Color.FromArgb(75, 0, 130),     // Indigo
+            Color.FromArgb(0, 139, 139),    // Dark Cyan
+            Color.FromArgb(199, 21, 133),   // Medium Violet Red
+            Color.FromArgb(128, 128, 0),    // Olive
+            Color.FromArgb(70, 130, 180),   // Steel Blue
+            Color.FromArgb(139, 69, 19)     // Saddle Brown
         };
 
         private OutputEnum OldOutState;
@@ -238,6 +258,8 @@ namespace HP663xxCtrl {
                             OutCompMode.IsEnabled = eventData.HasOutputCompensation;
 
                             VM.HasChannel2 = eventData.HasSeprateEnableChannels;
+
+                            currentColorIdx = 0;
 
                             if (RestoreStateRequired)
                             {
@@ -401,6 +423,8 @@ namespace HP663xxCtrl {
             DVMVLabel.Text = state.DVM.ToString("N3", nfi);
         }
 
+        int currentColorIdx = 0;
+
         private void HandleDataAcquired(object sender, MeasArray result) {
             // Add data to the data record, and overwrite the sampling period (it should be the same
             // for all datapoints)
@@ -412,13 +436,14 @@ namespace HP663xxCtrl {
 
             ZedGraphControl zgc = (ZedGraphControl)ZedGraphHost.Child;
             zgc.GraphPane.XAxis.Title.Text = "Time";
-            
+
+            var curveColor = CurveColors[currentColorIdx++ % (CurveColors.Length)];
+
             zgc.GraphPane.YAxis.Title.Text = "Current"; // TODO Handle voltages
             double[] xlist = Enumerable.Range(AcqDataRecord.AcqDetails.SampleOffset, result.Data[0].Length).Select(x => (double)((x) * result.TimeInterval)).ToArray();
             for (int i = 0; i < result.Data.Length; i++) {
                 zgc.GraphPane.AddCurve("Acq" + (zgc.GraphPane.CurveList.Count).ToString(),
-                    xlist, result.Data[i],
-                    CurveColors[i % (CurveColors.Length)], SymbolType.None);
+                    xlist, result.Data[i], curveColor, SymbolType.None);
             }
             zgc.AxisChange();
             zgc.Invalidate();
@@ -567,6 +592,7 @@ namespace HP663xxCtrl {
             SaveLogDataButton.IsEnabled = true;
             LogButton.IsEnabled = true;
             VM.InstWorker.CurrentSelectedChannel = GetSelectedChannel();
+            currentColorIdx = 0;
         }
 
         private MeasWindowType GetMeasWindowType(string itemSter)
