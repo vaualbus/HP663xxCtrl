@@ -535,9 +535,6 @@ namespace HP663xxCtrl
                 else if (HP663xx.SupportsIDN(idn))
                 {
                     dev = new HP663xx(visaDev);
-                    // Copied from example code.
-                    visaDev.TerminationCharacter = 10;
-                    visaDev.TerminationCharacterEnabled = true;
                 }
                 else if (B296x.SupportsIDN(idn))
                 {
