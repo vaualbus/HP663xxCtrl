@@ -233,8 +233,7 @@ namespace HP663xxCtrl
 
             int remaining = arg.SegmentCount;
             while (remaining > 0 && !StopRequested && !StopAcquireRequested)
-            {
-
+            { 
                 int count = 0;
                 if (arg.triggerEdge == TriggerSlopeEnum.Immediate)
                 {
@@ -271,8 +270,8 @@ namespace HP663xxCtrl
                     }
                     return;
                 }
-                var data = dev.EndMeasure(channel: arg.SelectedChannel, mode: arg.SenseMode, triggerCount: count);
 
+                var data = dev.EndMeasure(channel: arg.SelectedChannel, mode: arg.SenseMode, triggerCount: count);
                 if (DataAcquired != null)
                 {
                     DataAcquired(this, data);

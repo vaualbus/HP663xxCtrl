@@ -83,8 +83,10 @@ namespace HP663xxCtrl {
         }
 
         System.Drawing.Color[] CurveColors = new System.Drawing.Color[] {
-            System.Drawing.Color.Black, System.Drawing.Color.Red,
-            System.Drawing.Color.Blue, System.Drawing.Color.Green
+            System.Drawing.Color.Black, 
+            System.Drawing.Color.Red,
+            System.Drawing.Color.Blue, 
+            System.Drawing.Color.Green
         };
 
         private OutputEnum OldOutState;
@@ -411,7 +413,7 @@ namespace HP663xxCtrl {
             ZedGraphControl zgc = (ZedGraphControl)ZedGraphHost.Child;
             zgc.GraphPane.XAxis.Title.Text = "Time";
             
-            zgc.GraphPane.YAxis.Title.Text = "Current";
+            zgc.GraphPane.YAxis.Title.Text = "Current"; // TODO Handle voltages
             double[] xlist = Enumerable.Range(AcqDataRecord.AcqDetails.SampleOffset, result.Data[0].Length).Select(x => (double)((x) * result.TimeInterval)).ToArray();
             for (int i = 0; i < result.Data.Length; i++) {
                 zgc.GraphPane.AddCurve("Acq" + (zgc.GraphPane.CurveList.Count).ToString(),

@@ -170,6 +170,11 @@ namespace HP663xxCtrl
 
             return res;
         }
+        private double QuerySingleDouble(string cmd)
+        {
+            var values = QueryDouble(cmd);
+            return (values.Length > 0)  ? values[0] : 0.0;
+        }
 
         private StatusFlags DecodeFlags(OperationStatusEnum opFlags, QuestionableStatusEnum questFlags)
         {
@@ -310,11 +315,9 @@ namespace HP663xxCtrl
 
         public ProgramDetails ReadProgramDetails()
         {
-            string response = Query("OUTP1?;VOLT?;CURR?;"
+            var parts = QueryString("OUTP1?;VOLT?;CURR?;"
                 + ":VOLT:PROT:STAT?;:VOLT:PROT?;:CURR:PROT:STAT?" +
-                (HasOutput2 ? ";:VOLT2?;CURR2?;OUTP2?"  : "")).Trim();
-
-            string[] parts = response.Split(new char[] { ';' });
+                (HasOutput2 ? ";:VOLT2?;CURR2?;OUTP2?"  : ""));
             ProgramDetails details = new ProgramDetails() 
             {
                 Enabled1 = (parts[0] == "1"),
@@ -342,7 +345,7 @@ namespace HP663xxCtrl
 
             if (HasOutput2) 
             {
-                parts = Query("VOLT2? MAX; CURR2? MAX").Trim().Split(new char[] { ';' });
+                parts = QueryString("VOLT2? MAX; CURR2? MAX");
                 details.MaxV2 = double.Parse(parts[0],CI);
                 details.MaxI2 = double.Parse(parts[1],CI);
 
@@ -364,13 +367,12 @@ namespace HP663xxCtrl
             DateTime start = DateTime.Now;
 
             // ~23 ms
-            string statusStr = Query("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
-                ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?").Trim();
+            var statusParts = QueryString("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
+                ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?");
 
-            string[] statuses = statusStr.Split(new char[] { ';' });
             ret.Flags = DecodeFlags( 
-                (OperationStatusEnum)int.Parse(statuses[0], CI),
-                (QuestionableStatusEnum)int.Parse(statuses[1], CI)
+                (OperationStatusEnum)int.Parse(statusParts[0], CI),
+                (QuestionableStatusEnum)int.Parse(statusParts[1], CI)
             );
 
             bool out2Enabled = false;
@@ -383,11 +385,11 @@ namespace HP663xxCtrl
                 }
             }
 
-            ret.IRange = double.Parse(statuses[2],CI);
-            ret.OutputEnabled1 = statuses[3] == "1";
+            ret.IRange = double.Parse(statusParts[2],CI);
+            ret.OutputEnabled1 = statusParts[3] == "1";
             ret.OutputEnabled2 = out2Enabled; // Out2 follow out 1.
-            ret.OVP = statuses[4] == "1";
-            ret.OCP = statuses[5] == "1";
+            ret.OVP = statusParts[4] == "1";
+            ret.OCP = statusParts[5] == "1";
 
             //
             // Must measure each thing individually
@@ -403,16 +405,15 @@ namespace HP663xxCtrl
             WriteString("TRIG:ACQ:SOUR INT;COUNT:VOLT 1;:TRIG:ACQ:COUNT:CURR 1");
             WriteString("SENS:SWE:POIN 2048; TINT 46.8e-6");
             WriteString("SENS:SWE:OFFS:POIN 0;:SENS:WIND HANN");
-           
             // Channel is about 30 ms
-            ret.V = Double.Parse(Query("MEAS:VOLT?"),CI);
-            ret.I = Double.Parse(Query("MEAS:CURR?"),CI);
+            ret.V = QuerySingleDouble("MEAS:VOLT?");
+            ret.I = QuerySingleDouble("MEAS:CURR?");
             
             // Ch2 is about 100 ms
             if (measureCh2 && HasOutput2) 
             {
-                ret.V2 = Double.Parse(Query("MEAS:VOLT2?"),CI);
-                ret.I2 = Double.Parse(Query("MEAS:CURR2?"),CI); // Fixed at 2048*(15.6us)
+                ret.V2 = QuerySingleDouble("MEAS:VOLT2?");
+                ret.I2 = QuerySingleDouble("MEAS:CURR2?"); // Fixed at 2048*(15.6us)
             }
             else
             {
@@ -420,12 +421,11 @@ namespace HP663xxCtrl
                 ret.I2 = double.NaN;
             }
 
-
             // Measure DVM data
             if (measureDVM && HasDVM)
             {
-                ret.DVM = Double.Parse(Query("MEAS:DVM?"), CI); // 2048*(15.6us) => 50 ms
-                // ret.DVM_RMS = Double.Parse(Query("MEAS:DVM:ACDC?"),CI);
+                ret.DVM = QuerySingleDouble("MEAS:DVM?"); // 2048*(15.6us) => 50 ms
+                // ret.DVM_RMS = QuerySingleDouble("MEAS:DVM:ACDC?");
             }
             else
             { 
@@ -442,17 +442,17 @@ namespace HP663xxCtrl
         {
             string val = Query("stat:oper:cond?;:stat:ques:cond?");
             int[] statuses = val.Split(new char[] { ';' }).Select(x => int.Parse(x,CI)).ToArray();
-            return DecodeFlags((OperationStatusEnum)statuses[0],(QuestionableStatusEnum)statuses[1]);
+            return DecodeFlags( (OperationStatusEnum) statuses[0], (QuestionableStatusEnum) statuses[1]);
         }
 
         public OperationStatusEnum GetOperationStatus()
         {
-            return (OperationStatusEnum)int.Parse(Query("STAT:OPER:COND?"),CI);
+            return (OperationStatusEnum) int.Parse(Query("STAT:OPER:COND?"),CI);
         }
 
         public QuestionableStatusEnum GetQuestionableStatus()
         {
-            return (QuestionableStatusEnum)int.Parse(Query("STAT:QUES:COND?"),CI);
+            return (QuestionableStatusEnum) int.Parse(Query("STAT:QUES:COND?"),CI);
         }
 
         string Query(string cmd)
@@ -718,18 +718,21 @@ namespace HP663xxCtrl
             {
                 interval = 15.6e-6;
             }
-
-            if (interval > 31200)
+            if (interval > 1e4)
             {
-                interval = 31200; /* Max sampling time. */
+                interval = 1e4;
             }
-
+            /*if (interval > 31200)
+            {
+                interval = 31200;
+            }*/
+                  
             WriteString(
                 "SENSe:SWEEP:POINTS " + numPoints.ToString(CI) + "; " +
                 "TINTerval " + interval.ToString(CI) + ";" +
                 "OFFSET:POINTS " + triggerOffset.ToString(CI));
 
-            if(triggerEdge== TriggerSlopeEnum.Immediate || double.IsNaN(level))
+            if(triggerEdge == TriggerSlopeEnum.Immediate || double.IsNaN(level))
             {
                 WriteString("TRIG:ACQ:SOURCE BUS");
                 WriteString("ABORT;*WAI");
@@ -746,10 +749,10 @@ namespace HP663xxCtrl
                 }
 
                 WriteString(
-                    "TRIG:ACQ:COUNT:" + modeString + " " + triggerCount.ToString(CI) + ";" +
-                    ":TRIG:ACQ:LEVEL:" + modeString + " " + level.ToString(CI) + ";" +
-                    ":TRIG:ACQ:SLOPE:" + modeString + " " + slopeStr + ";" +
-                    ":TRIG:ACQ:HYST:" + modeString + " " + hysteresis.ToString(CI)
+                    $"TRIG:ACQ:COUNT:{modeString} {triggerCount.ToString(CI)};" +
+                    $":TRIG:ACQ:LEVEL:{modeString} {level.ToString(CI)};" +
+                    $":TRIG:ACQ:SLOPE:{modeString} {slopeStr};" +
+                    $":TRIG:ACQ:HYST:{modeString} {hysteresis.ToString(CI)}"
                 );
 
                 WriteString("TRIG:ACQ:SOURCE INT");
@@ -811,7 +814,7 @@ namespace HP663xxCtrl
             {
                 res.Data[i] = data.Skip(numPoints * i)
                     .Take(numPoints)
-                    .Select(x => (double)x)
+                    .Select(x => (double) x)
                     .ToArray();
 
             }
