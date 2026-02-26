@@ -225,7 +225,7 @@ namespace HP663xxCtrl {
                     switch (eventData.State)
                     {
                         case InstrumentWorker.StateEnum.Connected:
-
+                        {
                             ConnectButton.IsEnabled = false;
                             DisconnectButton.IsEnabled = true;
                             MeasWindowTypeBox.IsEnabled = true;
@@ -295,7 +295,8 @@ namespace HP663xxCtrl {
                                 SaveAcquireButton.IsEnabled = true;
                             if (LogDataRecord != null && LogDataRecord.DataSeries.Count != 0)
                                 SaveLogDataButton.IsEnabled = true;
-                            break;
+                        } break;
+
                         case InstrumentWorker.StateEnum.ConnectionFailed:
                             //
                             // Connection to instruments has failed, error out and
@@ -476,7 +477,7 @@ namespace HP663xxCtrl {
             OVPCheckbox.IsChecked = details.OVP;
             VM.OVPLevel = details.OVPVal;
             var IDSplit = details.ID.Split(new char[] {','});
-            ModelStatusBarItem.Content = IDSplit[1] + " (" + IDSplit[2].ToUpper() + ")";
+            ModelStatusBarItem.Content = IDSplit[1] + $" ({details.swVersion})" + " (" + IDSplit[2].ToUpper() + ")";
 
             // Limits for programming
             CH1VTextBox.MaxValue = details.MaxV1;

@@ -145,9 +145,11 @@ namespace HP663xxCtrl
             return statusFlags;
         }
 
-#endregion
+        #endregion
 
         #region Public Methods and fields
+
+        private string swVersion;
 
         public bool HasOutput2 { get; private set; }
 
@@ -175,6 +177,7 @@ namespace HP663xxCtrl
                 throw new InvalidOperationException("Not a known B296x supply!");
             }
 
+            swVersion = "";
 
             // Select proper model
             Model = IDParts[1];
@@ -456,7 +459,8 @@ namespace HP663xxCtrl
                 HasDVM = HasDVM,
                 HasOutput2 = HasOutput2,
                 HasOVP = this.HasOVP,
-                ID = ID
+                ID = ID,
+                swVersion = swVersion
             };
 
             var currProtRegBitsStr = QueryString(":STAT:QUES:CURR:COND?")[0];

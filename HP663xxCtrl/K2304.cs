@@ -9,9 +9,11 @@ using Ivi.Visa;
 namespace HP663xxCtrl {
     class K2304 : IFastSMU
     {
-        CultureInfo CI = System.Globalization.CultureInfo.InvariantCulture;
+        private string swVersion;
+        private CultureInfo CI = System.Globalization.CultureInfo.InvariantCulture;
+        private IMessageBasedSession dev;
+        private string ID;
 
-        IMessageBasedSession dev;
         public bool HasDVM { get; private set; }
         public bool HasOutput2 { get; private set; }
 
@@ -20,7 +22,7 @@ namespace HP663xxCtrl {
         public bool HasTwoMeasureChannels => false;  //TODO: Check if we can measure both cahnnels here! // { get; private set; }
 
         public bool HasOVP { get { return false; } }
-        string ID;
+       
         public void Reset()
         {
             WriteString("*RST");
@@ -83,7 +85,8 @@ namespace HP663xxCtrl {
                 HasOutput2 = HasOutput2,
                 HasOVP = this.HasOVP,
                 I1Ranges = new double[] { 0.005, 5 },
-                ID = ID
+                ID = ID,
+                swVersion = swVersion
             };
 
             details.Enabled1 = (Query("OUTP?").Trim().StartsWith("1"));
@@ -491,6 +494,8 @@ namespace HP663xxCtrl {
             WriteString("FORMAT ASCII"); // Single seems broken, so does double?!
             //WriteString("FORMat:BORDer NORMAL");
             LFrequency = Double.Parse(Query("SYSTEM:LFRequency?"));
+
+            swVersion = "";
         }
         public void SetCurrentDetector(CurrentDetectorEnum detector)
         {

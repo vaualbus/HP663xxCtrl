@@ -72,8 +72,10 @@ namespace HP663xxCtrl
         private Models CurrentModel;
 
         // PRIVATE 
+        private string swVersion;
         private IMessageBasedSession dev;
         private string Model;
+
 
         private bool HasDataLog { get; set; }
         private double DLogFudgeOffset;
@@ -89,6 +91,8 @@ namespace HP663xxCtrl
         public bool HasDVM { get; private set; }
         public bool HasOutput2 { get; private set; }
         public bool HasOVP { get { return true; } }
+
+
 
         public bool HasOutputComp { get; private set; }
 
@@ -264,7 +268,12 @@ namespace HP663xxCtrl
                     throw new InvalidOperationException("Not a known 663xx supply!");
             }
 
-            HasDataLog = IDParts[3].ToUpper().StartsWith("A.03");
+
+            swVersion = IDParts[3].ToUpper();
+            
+            var versionParts = swVersion.Split('.');
+            var hasCoupledMode = int.Parse(versionParts[1]) >= 2 && int.Parse(versionParts[2]) >= 4;
+            HasDataLog = int.Parse(versionParts[1]) >= 3; 
 
             WriteString("STATUS:PRESET"); // Clear PTR/NTR/ENABLE register
             EnsurePSCOne();
@@ -295,6 +304,14 @@ namespace HP663xxCtrl
                     HasOutput2 = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
                                 (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
                     HasTwoMeasureChannels = false;
+
+                    if (HasOutput2)
+                    {
+                        //
+                        // Set coupled mode to disable to control output 1 and two separatly
+                        //
+                        WriteString("INST:COUP:OUTP:STAT NONE");
+                    }
                 }
                 break;
             }
@@ -306,6 +323,11 @@ namespace HP663xxCtrl
             WriteString("STAT:PRES");
             WriteString("*SRE 0");
             WriteString("*ESE 0");
+
+            if ( HasOutput2 )
+            {
+                WriteString("INST:COUP:OUTP:STAT NONE");
+            }
         }
 
         public void SetCurrentRange(double range) 
@@ -332,7 +354,8 @@ namespace HP663xxCtrl
                 HasDVM = HasDVM,
                 HasOutput2 = HasOutput2,
                 HasOVP = this.HasOVP,
-                ID = Query("*IDN?")
+                ID = Query("*IDN?"),
+                swVersion = swVersion
             };
 
             // Maximums

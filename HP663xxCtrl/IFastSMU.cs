@@ -102,6 +102,8 @@ namespace HP663xxCtrl {
         public double I1Range;
         public double[] I1Ranges;
         public CurrentDetectorEnum Detector;
+
+        public string swVersion;
     }
 
     interface IFastSMU 
