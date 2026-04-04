@@ -302,7 +302,7 @@ namespace HP663xxCtrl
 
                     HasOutputComp = true;
                     HasOutput2 = (CurrentModel == Models.Model_66309B || CurrentModel == Models.Model_66309D) ||
-                                (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
+                                 (CurrentModel == Models.Model_66319B || CurrentModel == Models.Model_66319D);
                     HasTwoMeasureChannels = false;
 
                     if (HasOutput2)
@@ -340,6 +340,7 @@ namespace HP663xxCtrl
             var parts = QueryString("OUTP1?;VOLT?;CURR?;"
                 + ":VOLT:PROT:STAT?;:VOLT:PROT?;:CURR:PROT:STAT?" +
                 (HasOutput2 ? ";:VOLT2?;CURR2?;OUTP2?"  : ""));
+
             ProgramDetails details = new ProgramDetails() 
             {
                 Enabled1 = (parts[0] == "1"),
@@ -391,28 +392,23 @@ namespace HP663xxCtrl
 
             // ~23 ms
             var statusParts = QueryString("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
-                ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?");
+                ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?" +  ( HasOutput2 ? 
+                "OUTP2?" : "" ) );
 
             ret.Flags = DecodeFlags( 
                 (OperationStatusEnum)int.Parse(statusParts[0], CI),
                 (QuestionableStatusEnum)int.Parse(statusParts[1], CI)
             );
 
-            bool out2Enabled = false;
-            if (HasOutput2)
-            {
-                var resp = QueryString("OUTP2?");
-                if ( resp.Length == 1)
-                {
-                    out2Enabled = ( resp[0] == "1" );
-                }
-            }
-
             ret.IRange = double.Parse(statusParts[2],CI);
-            ret.OutputEnabled1 = statusParts[3] == "1";
-            ret.OutputEnabled2 = out2Enabled; // Out2 follow out 1.
             ret.OVP = statusParts[4] == "1";
             ret.OCP = statusParts[5] == "1";
+
+            //
+            // Out enable state
+            //
+            ret.OutputEnabled1 = statusParts[3] == "1";
+            ret.OutputEnabled2 = HasOutput2 ? ( statusParts[6] == "1" ) : false;
 
             //
             // Must measure each thing individually
@@ -428,20 +424,14 @@ namespace HP663xxCtrl
             WriteString("TRIG:ACQ:SOUR INT;COUNT:VOLT 1;:TRIG:ACQ:COUNT:CURR 1");
             WriteString("SENS:SWE:POIN 2048; TINT 46.8e-6");
             WriteString("SENS:SWE:OFFS:POIN 0;:SENS:WIND HANN");
-            // Channel is about 30 ms
+            
+            // Channel currents and voltages
             ret.V = QuerySingleDouble("MEAS:VOLT?");
             ret.I = QuerySingleDouble("MEAS:CURR?");
-            
-            // Ch2 is about 100 ms
             if (measureCh2 && HasOutput2) 
             {
                 ret.V2 = QuerySingleDouble("MEAS:VOLT2?");
-                ret.I2 = QuerySingleDouble("MEAS:CURR2?"); // Fixed at 2048*(15.6us)
-            }
-            else
-            {
-                ret.V2 = double.NaN;
-                ret.I2 = double.NaN;
+                ret.I2 = QuerySingleDouble("MEAS:CURR2?");
             }
 
             // Measure DVM data
@@ -664,13 +654,11 @@ namespace HP663xxCtrl
 
                 case SenseModeEnum.VOLTAGE:
                 {
-                    parts = QueryDouble("MEAS:VOLT?;:MEAS:VOLT:MIN?;MAX?;ACDC?LOW?;HIGH?");
+                    parts = QueryDouble("MEAS:VOLT?;:MEAS:VOLT:MIN?;MAX?;ACDC?");
                     ret.Mean = parts[0];
                     ret.Min = parts[1];
                     ret.Max = parts[2];
                     ret.RMS = parts[3];
-                    ret.Low = parts[4];
-                    ret.High = parts[5];
                 } break;
 
                 case SenseModeEnum.DVM:

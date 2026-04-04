@@ -87,7 +87,7 @@ namespace HP663xxCtrl {
     public struct InstrumentState {
         public StatusFlags Flags;
         public double IRange;
-        public double V, I, V2, I2, DVM;
+        public double V, I, V2, I2, DVM, DVM_RMS;
         public double duration;
         public bool OutputEnabled1;
         public bool OutputEnabled2;
