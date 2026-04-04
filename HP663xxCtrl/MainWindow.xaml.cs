@@ -516,11 +516,11 @@ namespace HP663xxCtrl {
             ModelStatusBarItem.Content = IDSplit[1] + $" ({details.swVersion})" + " (" + IDSplit[2].ToUpper() + ")";
 
             // Limits for programming
-            CH1VTextBox.MaxValue = details.V1;
-            CH1ITextBox.MaxValue = details.I1;
+            CH1VTextBox.MaxValue = details.MaxV1;
+            CH1ITextBox.MaxValue = details.MaxI1;
             if (details.HasOutput2) {
-                CH2VTextBox.MaxValue = details.V2;
-                CH2ITextBox.MaxValue = details.I2;
+                CH2VTextBox.MaxValue = details.MaxV2;
+                CH2ITextBox.MaxValue = details.MaxI2;
             }
 
              for(int i=0; i< CurrentRangeComboBox.Items.Count; i++) {
