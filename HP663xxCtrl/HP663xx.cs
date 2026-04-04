@@ -393,7 +393,7 @@ namespace HP663xxCtrl
             // ~23 ms
             var statusParts = QueryString("stat:oper:cond?;:stat:ques:cond?;:sense:curr:range?;" +
                 ":OUTP1?;VOLTage:PROTection:STAT?;:CURR:PROT:STAT?" +  ( HasOutput2 ? 
-                "OUTP2?" : "" ) );
+                ";:OUTP2?" : "" ) );
 
             ret.Flags = DecodeFlags( 
                 (OperationStatusEnum)int.Parse(statusParts[0], CI),

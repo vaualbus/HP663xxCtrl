@@ -28,7 +28,8 @@ namespace HP663xxCtrl
             SetMeasureWindow,
             RestoreOutState,
             SetOutputComp,
-            ProgramOp
+            ProgramOp,
+            ResetInstrument
         }
         private struct Command
         {
@@ -512,6 +513,14 @@ namespace HP663xxCtrl
             });
         }
 
+        public void ExecuteResetInstrument()
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.ResetInstrument,
+            });
+        }
+
         public OutputEnum GetOutputState()
         {
             OutputEnum result = OutputEnum.Output_None;
@@ -663,10 +672,13 @@ namespace HP663xxCtrl
                                 dev.SetOutputCompensation((OutputCompensationEnum)cmd.arg1);
                                 break;
 
+                            case CommandEnum.ResetInstrument:
+                                dev.Reset();
+                                break;
+
                             case CommandEnum.ProgramOp:
-                            {
                                 dev.ProgramOp((ProgramOpType) cmd.arg1, (int) cmd.arg2);
-                            } break;
+                                break;
 
                             default:
                                 throw new Exception("Unhandled command in InstrumentWorker");

@@ -282,6 +282,8 @@ namespace HP663xxCtrl {
                             RecallProgramButton.IsEnabled = true;
                             InstrumentProgramsList.IsEnabled = true;
 
+                            ResetInstrumentButton.IsEnabled = true;
+
                             currentColorIdx = 0;
 
                             // Given the intrument type, populate the number of program present. 
@@ -364,6 +366,7 @@ namespace HP663xxCtrl {
                             SaveProgramButton.IsEnabled = false;
                             RecallProgramButton.IsEnabled = false;
                             InstrumentProgramsList.IsEnabled = false;
+                            ResetInstrumentButton.IsEnabled = false;
                             break;
 
                         case InstrumentWorker.StateEnum.Measuring:
@@ -1012,6 +1015,18 @@ namespace HP663xxCtrl {
 
                 VM.InstWorker.ExecuteProgramOp(ProgramOpType.Program_Op_Set, programID);
             }
+        }
+
+        private void ResetIntruementButton_Click(object sender, RoutedEventArgs e)
+        {
+            VM.InstWorker.ExecuteResetInstrument();
+
+            // We need to wait for the instrument to set-up the settings.
+            Thread.Sleep(500);
+
+            // Refresh the program details.
+            VM.InstWorker.RefreshProgramDetails();
+
         }
     }
 }
