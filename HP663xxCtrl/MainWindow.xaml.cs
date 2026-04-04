@@ -8,6 +8,7 @@ using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Threading;
 using ZedGraph;
 
 namespace HP663xxCtrl {
@@ -25,6 +26,15 @@ namespace HP663xxCtrl {
         AcquisitionData LogDataRecord = null;
 
         DisplayState DisplayState = DisplayState.OFF;
+
+        private OutputEnum OldOutState;
+        private OutputEnum SelectedLogChannel;
+        private OutputEnum SelectedAcqChannel;
+        private bool RestoreStateRequired;
+
+        private string ElapsedTimeText = "";
+
+
 
         public MainWindow() {
             InitializeComponent();
@@ -46,6 +56,9 @@ namespace HP663xxCtrl {
 
             VM = (MainWindowVm)DataContext;
             VM.Window = this;
+
+
+            // VM.InstWorker.AcquisitionTimerCallback += UiTimer_Tick;
 
             //
             // Add default intr address ( my home setup (: )
@@ -108,11 +121,17 @@ namespace HP663xxCtrl {
             Color.FromArgb(70, 130, 180),   // Steel Blue
             Color.FromArgb(139, 69, 19)     // Saddle Brown
         };
+        private static string FormatElapsed(TimeSpan ts)
+        {
+            return ts.TotalHours >= 1
+                ? $"{(int)ts.TotalHours:00}:{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds:000}"
+                : $"{ts.Minutes:00}:{ts.Seconds:00}.{ts.Milliseconds:000}";
+        }
 
-        private OutputEnum OldOutState;
-        private OutputEnum SelectedLogChannel;
-        private OutputEnum SelectedAcqChannel;
-        private bool RestoreStateRequired;
+        private void UiTimer_Tick(object sender, TimeSpan elapsedTime )
+        {
+            ElapsedTimeText = FormatElapsed( elapsedTime );
+        }
 
         private OutputEnum GetOutState()
         {
@@ -259,7 +278,18 @@ namespace HP663xxCtrl {
 
                             VM.HasChannel2 = eventData.HasSeprateEnableChannels;
 
+                            SaveProgramButton.IsEnabled = true;
+                            RecallProgramButton.IsEnabled = true;
+                            InstrumentProgramsList.IsEnabled = true;
+
                             currentColorIdx = 0;
+
+                            // Given the intrument type, populate the number of program present. 
+                            for ( int idx = 0; idx < eventData.NumOfPresetPrograms; ++idx )
+                            {
+                                var elemStr = (idx + 1).ToString();
+                                InstrumentProgramsList.Items.Add(elemStr);
+                            }
 
                             if (RestoreStateRequired)
                             {
@@ -331,6 +361,9 @@ namespace HP663xxCtrl {
                             AddressComboBox.IsEnabled = true;
                             VM.InstWorker.InstrumentIsConnected = false;
                             OutCompMode.IsEnabled = false;
+                            SaveProgramButton.IsEnabled = false;
+                            RecallProgramButton.IsEnabled = false;
+                            InstrumentProgramsList.IsEnabled = false;
                             break;
 
                         case InstrumentWorker.StateEnum.Measuring:
@@ -480,11 +513,11 @@ namespace HP663xxCtrl {
             ModelStatusBarItem.Content = IDSplit[1] + $" ({details.swVersion})" + " (" + IDSplit[2].ToUpper() + ")";
 
             // Limits for programming
-            CH1VTextBox.MaxValue = details.MaxV1;
-            CH1ITextBox.MaxValue = details.MaxI1;
+            CH1VTextBox.MaxValue = details.V1;
+            CH1ITextBox.MaxValue = details.I1;
             if (details.HasOutput2) {
-                CH2VTextBox.MaxValue = details.MaxV2;
-                CH2ITextBox.MaxValue = details.MaxI2;
+                CH2VTextBox.MaxValue = details.V2;
+                CH2ITextBox.MaxValue = details.I2;
             }
 
              for(int i=0; i< CurrentRangeComboBox.Items.Count; i++) {
@@ -530,6 +563,7 @@ namespace HP663xxCtrl {
             zgc.AxisChange();
             zgc.Invalidate();
         }
+
         private void LogButton_Click(object sender, RoutedEventArgs e) {
 
             var selectedChannel = GetSelectedChannel();
@@ -949,6 +983,34 @@ namespace HP663xxCtrl {
                 ErrorLog.Text = errorStr;
 
                 UpdateLayout();
+            }
+        }
+
+        private void RecallProgramButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (InstrumentProgramsList.SelectedItem != null)
+            {
+                var programStr = InstrumentProgramsList.SelectedItem as string;
+                var programID = int.Parse(programStr) - 1;  // Programs are 0 based 
+
+                VM.InstWorker.ExecuteProgramOp(ProgramOpType.Program_Op_Recall, programID);
+
+                // We need to wait for the intrument to set-up the settings.
+                Thread.Sleep(500);
+
+                // Refresh the program details.
+                VM.InstWorker.RefreshProgramDetails();
+            }
+        }
+
+        private void SaveProgramButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (InstrumentProgramsList.SelectedItem != null)
+            {
+                var programStr = InstrumentProgramsList.SelectedItem as string;
+                var programID = int.Parse(programStr) - 1;  // Programs are 0 based 
+
+                VM.InstWorker.ExecuteProgramOp(ProgramOpType.Program_Op_Set, programID);
             }
         }
     }

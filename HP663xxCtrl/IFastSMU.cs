@@ -12,6 +12,14 @@ namespace HP663xxCtrl {
         public InstrumentState InstrState;
     }
 
+    public enum ProgramOpType
+    {
+        Program_Op_None = 0,
+
+        Program_Op_Set,
+        Program_Op_Recall
+    }
+
     public struct LoggerDatapoint {
         public double Min, Mean, Max, RMS;
         public double Low, High;
@@ -111,10 +119,11 @@ namespace HP663xxCtrl {
         bool HasOutput2{get;}
         bool HasDVM { get; }
         bool HasOVP { get; }
-
         bool HasOutputComp { get; }
 
         bool HasTwoMeasureChannels { get;  }
+
+        int NumOfPresets { get; }
 
         void Reset();
         void SetOCP(bool enabled);
@@ -141,6 +150,8 @@ namespace HP663xxCtrl {
         void RestoreOutState(OutputEnum selectedChannel);
 
         string GetSystemErrorStr();
+
+        void ProgramOp(ProgramOpType type, int programID);
 
         //
         // Output

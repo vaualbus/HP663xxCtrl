@@ -27,12 +27,14 @@ namespace HP663xxCtrl
             SetDisplayState,
             SetMeasureWindow,
             RestoreOutState,
-            SetOutputComp
+            SetOutputComp,
+            ProgramOp
         }
         private struct Command
         {
             public CommandEnum cmd;
-            public object arg;
+            public object arg1;
+            public object arg2;
         }
 
         //
@@ -68,6 +70,7 @@ namespace HP663xxCtrl
             public bool HasOutputCompensation;
             public bool HasTwoMeasureChannels;
             public bool HasSeprateEnableChannels;
+            public int  NumOfPresetPrograms;
         }
 
         //
@@ -100,6 +103,10 @@ namespace HP663xxCtrl
         public event EventHandler<LoggerDatapoint> LogerDatapointAcquired;
         public string VisaAddress { get; private set; }
 
+        public int NumOfPresetPrograms;
+
+        // public event EventHandler<TimeSpan> AcquisitionTimerCallback;
+
         //
         // Private Functions
         //
@@ -112,10 +119,11 @@ namespace HP663xxCtrl
                 HasOutputCompensation = HasOutputCompensation,
                 HasTwoMeasureChannels = HasTwoMeasureChannels,
                 HasSeprateEnableChannels = HasSeprateEnableChannels,
+                NumOfPresetPrograms = NumOfPresetPrograms
             };
         }
 
-        private void RefreshDisplay()
+        public void RefreshDisplay()
         {
             var state = dev.ReadState();
             if (NewState != null)
@@ -358,7 +366,7 @@ namespace HP663xxCtrl
         }
         public void RequestIRange(double range)
         {
-            EventQueue.Add(new Command() { cmd = CommandEnum.IRange, arg = range });
+            EventQueue.Add(new Command() { cmd = CommandEnum.IRange, arg1 = range });
         }
 
         // Must set StopAcquireRequested to false before starting acquisition
@@ -377,7 +385,7 @@ namespace HP663xxCtrl
                 return data;
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.Acquire,
-                arg = details
+                arg1 = details
             });
             return data;
         }
@@ -391,7 +399,7 @@ namespace HP663xxCtrl
             EventQueue.Add(new Command() 
             {
                 cmd = CommandEnum.DLFirmware,
-                arg = filename
+                arg1 = filename
             });
         }
 
@@ -404,14 +412,14 @@ namespace HP663xxCtrl
 
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.Log,
-                arg = new object[] {channel,mode,interval}
+                arg1 = new object[] {channel,mode,interval}
             });
         }
         public void RequestProgram(ProgramDetails details) 
         {
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.Program,
-                arg = details
+                arg1 = details
             });
         }
 
@@ -419,7 +427,7 @@ namespace HP663xxCtrl
         {
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.ClearProtection,
-                arg = null
+                arg1 = null
             });
         }
 
@@ -433,7 +441,7 @@ namespace HP663xxCtrl
             EventQueue.Add(new Command()
             {
                 cmd = CommandEnum.RestoreOutState,
-                arg = selectedChannel
+                arg1 = selectedChannel
             });
 
             //
@@ -447,7 +455,7 @@ namespace HP663xxCtrl
         {
             EventQueue.Add(new Command() {
                 cmd = CommandEnum.SetACDCDetector,
-                arg = detector
+                arg1 = detector
             });
         }
 
@@ -456,7 +464,7 @@ namespace HP663xxCtrl
             EventQueue.Add(new Command()
             {
                 cmd = CommandEnum.SendTextToDisplay,
-                arg = text
+                arg1 = text
             });
         }
 
@@ -465,7 +473,7 @@ namespace HP663xxCtrl
             EventQueue.Add(new Command()
             {
                 cmd = CommandEnum.SetDisplayState,
-                arg = state
+                arg1 = state
             }) ;
         }
 
@@ -474,7 +482,7 @@ namespace HP663xxCtrl
             EventQueue.Add(new Command()
             {
                 cmd = CommandEnum.SetOutputComp,
-                arg = outComp
+                arg1 = outComp
             });
         }
 
@@ -491,7 +499,16 @@ namespace HP663xxCtrl
             EventQueue.Add(new Command()
             {
                 cmd = CommandEnum.SetMeasureWindow,
-                arg = type
+                arg1 = type
+            });
+        }
+        public void ExecuteProgramOp(ProgramOpType type, int programID)
+        {
+            EventQueue.Add(new Command()
+            {
+                cmd = CommandEnum.ProgramOp,
+                arg1 = type,
+                arg2 = programID
             });
         }
 
@@ -556,6 +573,7 @@ namespace HP663xxCtrl
                     HasOutputCompensation = dev.HasOutputComp;
                     HasTwoMeasureChannels = dev.HasTwoMeasureChannels;
                     HasSeprateEnableChannels = dev.HasOutput2;
+                    NumOfPresetPrograms = dev.NumOfPresets;
                 }
                 else
                 {
@@ -585,12 +603,8 @@ namespace HP663xxCtrl
                     StateChanged(this, GetStateData(StateEnum.Connected));
                 }
 
-                if (ProgramDetailsReadback != null)
-                {
-                    ProgramDetails progDetails = dev.ReadProgramDetails();
-                    LastProgramDetails = progDetails;
-                    ProgramDetailsReadback(this, LastProgramDetails);
-                }
+                RefreshProgramDetails();
+
                 RefreshDisplay();
                 LastRefresh = DateTime.Now;
 
@@ -603,30 +617,30 @@ namespace HP663xxCtrl
                         switch (cmd.cmd)
                         {
                             case CommandEnum.IRange:
-                                DoSetCurrentRange((double)cmd.arg);
+                                DoSetCurrentRange((double)cmd.arg1);
                                 break;
                             case CommandEnum.Acquire:
-                                DoMeasure((AcquireDetails)cmd.arg);
+                                DoMeasure((AcquireDetails)cmd.arg1);
                                 break;
                             case CommandEnum.Log:
-                                var args = (object[])cmd.arg;
+                                var args = (object[])cmd.arg1;
                                 DoLog((OutputEnum)args[0], (SenseModeEnum)args[1], (double)args[2]);
                                 break;
                             case CommandEnum.Program:
-                                DoProgram((ProgramDetails)cmd.arg);
+                                DoProgram((ProgramDetails)cmd.arg1);
                                 break;
                             case CommandEnum.ClearProtection:
                                 DoClearProtection();
                                 break;
                             case CommandEnum.SetACDCDetector:
-                                DoACDCDetector((CurrentDetectorEnum)cmd.arg);
+                                DoACDCDetector((CurrentDetectorEnum)cmd.arg1);
                                 break;
                             case CommandEnum.DLFirmware:
-                                DoDLFirmware((string)cmd.arg);
+                                DoDLFirmware((string)cmd.arg1);
                                 break;
 
                             case CommandEnum.SendTextToDisplay:
-                                dev.SetDisplayText((string)cmd.arg);
+                                dev.SetDisplayText((string)cmd.arg1);
                                 break;
 
                             case CommandEnum.ClearDisplay:
@@ -634,20 +648,25 @@ namespace HP663xxCtrl
                                 break;
 
                             case CommandEnum.SetDisplayState:
-                                dev.SetDisplayState((DisplayState)cmd.arg);
+                                dev.SetDisplayState((DisplayState)cmd.arg1);
                                 break;
 
                             case CommandEnum.RestoreOutState:
-                                dev.RestoreOutState((OutputEnum)cmd.arg);
+                                dev.RestoreOutState((OutputEnum)cmd.arg1);
                                 break;
 
                             case CommandEnum.SetMeasureWindow:
-                                ((HP663xx)dev).SetMeasureWindowType((MeasWindowType)cmd.arg);
+                                ((HP663xx)dev).SetMeasureWindowType((MeasWindowType)cmd.arg1);
                                 break;
 
                             case CommandEnum.SetOutputComp:
-                                dev.SetOutputCompensation((OutputCompensationEnum)cmd.arg);
+                                dev.SetOutputCompensation((OutputCompensationEnum)cmd.arg1);
                                 break;
+
+                            case CommandEnum.ProgramOp:
+                            {
+                                dev.ProgramOp((ProgramOpType) cmd.arg1, (int) cmd.arg2);
+                            } break;
 
                             default:
                                 throw new Exception("Unhandled command in InstrumentWorker");
@@ -675,6 +694,18 @@ namespace HP663xxCtrl
             if (WorkerDone != null)
             {
                 WorkerDone.Invoke(this, null);
+            }
+        }   
+        public void RefreshProgramDetails()
+        {
+            if (InstrumentIsConnected)
+            {
+                if (ProgramDetailsReadback != null)
+                {
+                    ProgramDetails progDetails = dev.ReadProgramDetails();
+                    LastProgramDetails = progDetails;
+                    ProgramDetailsReadback(this, LastProgramDetails);
+                }
             }
         }
     }

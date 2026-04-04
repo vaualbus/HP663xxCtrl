@@ -159,6 +159,8 @@ namespace HP663xxCtrl
 
         public bool HasDataLog => false;
 
+        public int NumOfPresets => 4; // TODO: Check on manual
+
         public B296x(IMessageBasedSession visaDev)
         {
             dev = visaDev;
@@ -244,6 +246,28 @@ namespace HP663xxCtrl
             WriteString("STAT:PRES");
             WriteString("*SRE 0");
             WriteString("*ESE 0");
+        }
+
+        public void ProgramOp(ProgramOpType type, int programID)
+        {
+            switch (type)
+            {
+                case ProgramOpType.Program_Op_Set:
+                    {
+                        WriteString($"*SAV {programID}");
+                    }
+                    break;
+
+                case ProgramOpType.Program_Op_Recall:
+                    {
+                        WriteString($"*RCL {programID}");
+                    }
+                    break;
+
+                default:
+                    { }
+                    break;
+            }
         }
 
         public void Close(bool goToLocal = true)

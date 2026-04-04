@@ -22,7 +22,8 @@ namespace HP663xxCtrl {
         public bool HasTwoMeasureChannels => false;  //TODO: Check if we can measure both cahnnels here! // { get; private set; }
 
         public bool HasOVP { get { return false; } }
-       
+        public int NumOfPresets => 4; // TODO: Check on manual
+
         public void Reset()
         {
             WriteString("*RST");
@@ -173,6 +174,28 @@ namespace HP663xxCtrl {
             string val = Query("stat:oper:cond?;:stat:ques:cond?");
             int[] statuses = val.Split(new char[] { ';' }).Select(x => int.Parse(x, CI)).ToArray();
             return DecodeFlags((OperationStatusEnum)statuses[0], (QuestionableEventEnum)statuses[1]);
+        }
+
+        public void ProgramOp(ProgramOpType type, int programID)
+        {
+            switch (type)
+            {
+                case ProgramOpType.Program_Op_Set:
+                    {
+                        WriteString($"*SAV {programID}");
+                    }
+                    break;
+
+                case ProgramOpType.Program_Op_Recall:
+                    {
+                        WriteString($"*RCL {programID}");
+                    }
+                    break;
+
+                default:
+                    { }
+                    break;
+            }
         }
 
         public OperationStatusEnum GetOperationStatus()

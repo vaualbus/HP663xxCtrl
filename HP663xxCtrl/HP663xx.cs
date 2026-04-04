@@ -92,7 +92,7 @@ namespace HP663xxCtrl
         public bool HasOutput2 { get; private set; }
         public bool HasOVP { get { return true; } }
 
-
+        public int NumOfPresets => 4; 
 
         public bool HasOutputComp { get; private set; }
 
@@ -789,6 +789,27 @@ namespace HP663xxCtrl
             // Clear status byte
             Query("*ESR?");
             WriteString("*OPC");
+        }
+
+        public void ProgramOp( ProgramOpType type, int programID )
+        { 
+            switch( type )
+            {
+                case ProgramOpType.Program_Op_Set:
+                {
+                    WriteString($"*SAV {programID}");
+                }
+                break;
+
+                case ProgramOpType.Program_Op_Recall:
+                {
+                    WriteString($"*RCL {programID}");
+                }
+                break;
+
+                default:
+                {  } break;
+            }
         }
 
         public MeasArray EndMeasure(OutputEnum channel, SenseModeEnum mode, int triggerCount = 1 ) 
