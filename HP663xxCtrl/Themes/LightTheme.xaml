@@ -1,0 +1,28 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Light theme (default / original look) -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFF0F0F0"/>
+    <SolidColorBrush x:Key="WindowForegroundBrush" Color="#FF000000"/>
+
+    <SolidColorBrush x:Key="GroupBoxBackgroundBrush" Color="#FFFFF5F5"/>
+    <SolidColorBrush x:Key="GroupBoxBorderBrush" Color="DarkOrange"/>
+
+    <SolidColorBrush x:Key="MenuBackgroundBrush" Color="#FFF0F0F0"/>
+    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#FFDDDDDD"/>
+
+    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#FFE1E1E1"/>
+    <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#FF000000"/>
+
+    <SolidColorBrush x:Key="SplitterBackgroundBrush" Color="#FFDDDDDD"/>
+
+    <!-- TextBox / ComboBox / numeric input boxes -->
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#FFFFFFFF"/>
+    <SolidColorBrush x:Key="ControlForegroundBrush" Color="#FF000000"/>
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#FFABADB3"/>
+
+    <!-- ZedGraph colors (applied in code-behind since the graph is WinForms-hosted) -->
+    <Color x:Key="GraphBackColor">#FFFFFFFF</Color>
+    <Color x:Key="GraphForeColor">#FF000000</Color>
+
+</ResourceDictionary>

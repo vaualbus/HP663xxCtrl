@@ -5,7 +5,11 @@
         xmlns:numericInput="http://gu.se/NumericInput"
         xmlns:local="clr-namespace:HP663xxCtrl"
         x:Class="HP663xxCtrl.MainWindow"
-        Title="HP663xx Control" Closing="Window_Closing" >
+        Title="HP663xx Control" Closing="Window_Closing"
+        Width="1180" Height="820"
+        MinWidth="900" MinHeight="600"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource WindowForegroundBrush}" >
     <Window.DataContext>
         <local:MainWindowVm />
     </Window.DataContext>
@@ -27,16 +31,78 @@
         </Style>
       <Style TargetType="GroupBox">
         <Setter Property="Padding" Value="4"/>
-        <Setter Property="Background" Value="#FFF5F5"/>
-        <Setter Property="BorderBrush" Value="DarkOrange"/>
+        <Setter Property="Background" Value="{DynamicResource GroupBoxBackgroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource GroupBoxBorderBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
       </Style>
 
       <Style TargetType="Button">
         <Setter Property="Margin" Value="1,1"/>
+        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundBrush}"/>
       </Style>
 
       <Style TargetType="ComboBox">
         <Setter Property="Margin" Value="1,1"/>
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+      </Style>
+
+      <Style TargetType="ComboBoxItem">
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}"/>
+      </Style>
+
+      <Style TargetType="TextBox">
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+      </Style>
+
+      <Style TargetType="{x:Type numericInput:DoubleBox}">
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+      </Style>
+
+      <Style TargetType="{x:Type numericInput:IntBox}">
+        <Setter Property="Background" Value="{DynamicResource ControlBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource ControlForegroundBrush}"/>
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}"/>
+      </Style>
+
+      <Style TargetType="Label">
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+      </Style>
+
+      <Style TargetType="CheckBox">
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+      </Style>
+
+      <Style TargetType="RadioButton">
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+      </Style>
+
+      <Style TargetType="TabItem">
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+      </Style>
+
+      <Style TargetType="Menu">
+        <Setter Property="Background" Value="{DynamicResource MenuBackgroundBrush}"/>
+      </Style>
+
+      <Style TargetType="MenuItem">
+        <Setter Property="Background" Value="{DynamicResource MenuBackgroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+      </Style>
+
+      <Style TargetType="StatusBar">
+        <Setter Property="Background" Value="{DynamicResource StatusBarBackgroundBrush}"/>
+      </Style>
+
+      <Style TargetType="StatusBarItem">
+        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
       </Style>
 
       <Style x:Key="ChannelHiddenAtStartup" TargetType="UIElement">
@@ -48,11 +114,11 @@
     <Grid>
 
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="244"/>
-          <!-- Left panel -->
-          <ColumnDefinition Width="10"/>
-          <!-- GAP -->
-          <ColumnDefinition Width="*"/>
+          <ColumnDefinition Width="244" MinWidth="210" MaxWidth="420"/>
+          <!-- Left panel (drag the splitter to resize) -->
+          <ColumnDefinition Width="6"/>
+          <!-- Splitter -->
+          <ColumnDefinition Width="*" MinWidth="420"/>
           <!-- Main content -->
         </Grid.ColumnDefinitions>
 
@@ -79,10 +145,23 @@
             <MenuItem Header="_Tools">
                 <MenuItem Header="Download Firmware" Command="{Binding DLFirmwareCommand}"/>
             </MenuItem>
+            <MenuItem Header="_View">
+                <MenuItem Header="Theme">
+                    <MenuItem x:Name="LightThemeMenuItem" Header="_Light" Tag="Light" IsCheckable="True" IsChecked="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem x:Name="DarkThemeMenuItem" Header="_Dark" Tag="Dark" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem x:Name="BlueThemeMenuItem" Header="_Blue" Tag="Blue" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem x:Name="HighContrastThemeMenuItem" Header="_High Contrast" Tag="HighContrast" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                </MenuItem>
+            </MenuItem>
         </Menu>
             
-        <StackPanel Grid.Row="1" Grid.RowSpan="2"
-                Grid.Column="0" Margin="5,5,0,5">
+        <GridSplitter Grid.Row="1" Grid.RowSpan="2" Grid.Column="1"
+                      Width="6" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                      Background="{DynamicResource SplitterBackgroundBrush}" ResizeBehavior="PreviousAndNext" ShowsPreview="True"/>
+
+        <ScrollViewer Grid.Row="1" Grid.RowSpan="2" Grid.Column="0"
+                      VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="5,5,0,5">
             <GroupBox Header="Connection" >
                 <StackPanel >
                     <Label Content="Address:" />
@@ -449,6 +528,7 @@
                 </Grid>
             </GroupBox>
         </StackPanel>
+        </ScrollViewer>
 
       <GroupBox Header="Acquisition"  Grid.Row="1" Grid.Column="2" Margin="10,5,10,0" >
         <TabControl Grid.Row="1" Grid.Column="2"  x:Name="ControlTabs">

@@ -4,11 +4,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.Remoting.Channels;
-using System.Windows;
-using System.Windows.Media.Animation;
-using ZedGraph;
-using static System.Windows.Forms.AxHost;
 
 namespace HP663xxCtrl
 {
@@ -289,13 +284,13 @@ namespace HP663xxCtrl
         public void SetIV(int chNum, double voltage, double current)
         {
             // Set output mode, no wave form, fixed value.
-            WriteString(":SOUR:VOLT:MODE FIX");
+            WriteString($":SOUR{chNum}:VOLT:MODE FIX");
 
             //
             // TODO: Detect if we want CC or CV, than
             // If we awant CC than SOURC:CURR x; SENS:VOLT:PROT y!
             //
-            WriteString(":SOUR:FUNC:MODE VOLT");
+            WriteString($":SOUR{chNum}:FUNC:MODE VOLT");
             WriteString($":SENS{chNum}:CURR:PROT {current.ToString(CI)}");
             WriteString($":SOUR{chNum}:VOLT {voltage.ToString(CI)}");
         }
@@ -489,11 +484,11 @@ namespace HP663xxCtrl
 
             var currProtRegBitsStr = QueryString(":STAT:QUES:CURR:COND?")[0];
             var currProtRegBits = ReadHexString(currProtRegBitsStr);
-            details.OCP = (currProtRegBits & 0x1) != 0 || (currProtRegBits & 0x1) != 0;
+            details.OCP = (currProtRegBits & 0x1) != 0 || (currProtRegBits & 0x2) != 0;
 
             var voltProtRegBitsStr = QueryString(":STAT:QUES:VOLT:COND?")[0];
             var voltProtRegBits = ReadHexString(voltProtRegBitsStr);
-            details.OVP = (voltProtRegBits & 0x1) != 0 || (voltProtRegBits & 0x1) != 0;
+            details.OVP = (voltProtRegBits & 0x1) != 0 || (voltProtRegBits & 0x2) != 0;
             details.OVPVal = QueryDouble(":SENS:VOLT:PROT?")[0];
 
             // Maximums
@@ -555,8 +550,6 @@ namespace HP663xxCtrl
             //
             WriteString($":SENS:{modeString}:NPLC:AUTO 0");
             WriteString($":SENS:{modeString}:NPLC {nplc}");
-            WriteString($":SENS:{modeString}:NPLC {nplc}");
-           
 
             // WriteString(":TRIG:COUN INF");
 
@@ -599,7 +592,10 @@ namespace HP663xxCtrl
 
         public LoggerDatapoint[] EndLogging(OutputEnum selChannel, SenseModeEnum mode)
         {
-            var ret = new LoggerDatapoint();
+            // Low/High envelope isn't provided by this instrument; leave as NaN
+            // (not the struct's default 0.0) so the graph/CSV export correctly
+            // treat them as "not measured" instead of plotting a flat zero-line.
+            var ret = new LoggerDatapoint { Low = double.NaN, High = double.NaN };
             var chNum = (selChannel == OutputEnum.Output_1) ? 1 : 2;
 
             if (UseTraceBuffer)
@@ -731,7 +727,9 @@ namespace HP663xxCtrl
         public OutputEnum GetOutputState()
         {
             OutputEnum result = OutputEnum.Output_None;
-            var outStateStr = QueryString(":OUTP:STAT?;:OUTP2:STAT?");
+            var outStateStr = HasOutput2
+                ? QueryString(":OUTP:STAT?;:OUTP2:STAT?")
+                : QueryString(":OUTP:STAT?");
 
             // Setup a measurement to read the curent I/V values.
             if (outStateStr[0] == "1")
@@ -739,7 +737,7 @@ namespace HP663xxCtrl
                 result |= OutputEnum.Output_1;
             }
 
-            if (outStateStr[1] == "1")
+            if (HasOutput2 && outStateStr[1] == "1")
             {
                 result |= OutputEnum.Output_2;
             }

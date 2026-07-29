@@ -6,6 +6,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Threading;
@@ -94,6 +95,79 @@ namespace HP663xxCtrl {
 
             StopLoggingButton.IsEnabled = false;
             SaveLogDataButton.IsEnabled = false;
+
+            ApplyTheme(Properties.Settings.Default.Theme);
+        }
+
+        private void ThemeMenuItem_Click(object sender, RoutedEventArgs e)
+        {
+            string themeName = (string)((MenuItem)sender).Tag;
+            ApplyTheme(themeName);
+
+            Properties.Settings.Default.Theme = themeName;
+            Properties.Settings.Default.Save();
+        }
+
+        private static readonly Dictionary<string, string> ThemeFiles = new Dictionary<string, string>
+        {
+            { "Light", "Themes/LightTheme.xaml" },
+            { "Dark", "Themes/DarkTheme.xaml" },
+            { "Blue", "Themes/BlueTheme.xaml" },
+            { "HighContrast", "Themes/HighContrastTheme.xaml" },
+        };
+
+        private void ApplyTheme(string themeName)
+        {
+            if (!ThemeFiles.TryGetValue(themeName, out string themeFile))
+            {
+                themeName = "Light";
+                themeFile = ThemeFiles[themeName];
+            }
+
+            var newDict = new ResourceDictionary { Source = new Uri(themeFile, UriKind.Relative) };
+
+            var appResources = Application.Current.Resources;
+            var oldDict = appResources.MergedDictionaries.FirstOrDefault(d =>
+                d.Contains("WindowBackgroundBrush"));
+
+            if (oldDict != null)
+            {
+                appResources.MergedDictionaries.Remove(oldDict);
+            }
+            appResources.MergedDictionaries.Add(newDict);
+
+            LightThemeMenuItem.IsChecked = themeName == "Light";
+            DarkThemeMenuItem.IsChecked = themeName == "Dark";
+            BlueThemeMenuItem.IsChecked = themeName == "Blue";
+            HighContrastThemeMenuItem.IsChecked = themeName == "HighContrast";
+
+            ApplyGraphTheme();
+        }
+
+        private void ApplyGraphTheme()
+        {
+            var backColor = ToDrawingColor((System.Windows.Media.Color)FindResource("GraphBackColor"));
+            var foreColor = ToDrawingColor((System.Windows.Media.Color)FindResource("GraphForeColor"));
+
+            var pane = zgc.GraphPane;
+            pane.Fill = new Fill(backColor);
+            pane.Chart.Fill = new Fill(backColor);
+
+            pane.Title.FontSpec.FontColor = foreColor;
+
+            foreach (var axis in new[] { (Axis)pane.XAxis, pane.YAxis })
+            {
+                axis.Color = foreColor;
+                axis.Scale.FontSpec.FontColor = foreColor;
+                axis.Title.FontSpec.FontColor = foreColor;
+            }
+
+            zgc.Invalidate();
+        }
+
+        private static System.Drawing.Color ToDrawingColor(System.Windows.Media.Color c)
+        {
+            return System.Drawing.Color.FromArgb(c.A, c.R, c.G, c.B);
         }
 
         Color[] CurveColors = new[] {
@@ -231,9 +305,9 @@ namespace HP663xxCtrl {
                 Dispatcher.BeginInvoke((Action)(() => { HandleProgramDetailsReadback(sender2, details); }));
             };
 
-            VM.InstWorker.LogerDatapointAcquired += delegate(object sender2, LoggerDatapoint point)
+            VM.InstWorker.LogerDatapointAcquired += delegate(object sender2, LoggerDatapoint[] points)
             {
-                Dispatcher.BeginInvoke((Action)(() => { HandleLogDatapoint(sender2, point); }));
+                Dispatcher.BeginInvoke((Action)(() => { HandleLogDatapoint(sender2, points); }));
             };
 
             VM.InstWorker.StateChanged += delegate (object sender2, InstrumentWorker.StateEventData eventData)
@@ -250,6 +324,7 @@ namespace HP663xxCtrl {
                             MeasWindowTypeBox.IsEnabled = true;
 
                             ConnectionStatusBarItem.Content = "CONNECTED";
+                            ActivityStatusBarItem.Content = "IDLE";
                             AcquireButton.IsEnabled = true;
                             ApplyProgramButton.IsEnabled = true;
                             StopAcquireButton.IsEnabled = false;
@@ -350,9 +425,11 @@ namespace HP663xxCtrl {
                             OutCompMode.IsEnabled = false;
 
                             ConnectionStatusBarItem.Content = "CONNECTION FAILED";
+                            ActivityStatusBarItem.Content = "IDLE";
                             break;
                         case InstrumentWorker.StateEnum.Disconnected:
                             ConnectionStatusBarItem.Content = "DISCONNECTED";
+                            ActivityStatusBarItem.Content = "IDLE";
                             AcquireButton.IsEnabled = false;
                             ApplyProgramButton.IsEnabled = false;
                             StopAcquireButton.IsEnabled = false;
@@ -370,10 +447,13 @@ namespace HP663xxCtrl {
                             break;
 
                         case InstrumentWorker.StateEnum.Measuring:
-                            ConnectionStatusBarItem.Content = "MEASURING"; break;
+                            ActivityStatusBarItem.Content = "MEASURING..."; break;
                     }
                 }));
             };
+
+            ConnectionStatusBarItem.Content = "CONNECTING";
+            ActivityStatusBarItem.Content = "IDLE";
 
             VM.InstThread = new Thread(VM.InstWorker.ThreadMain);
             VM.InstThread.IsBackground = true;
@@ -543,26 +623,32 @@ namespace HP663xxCtrl {
 
         }
 
-        void HandleLogDatapoint(object sender, LoggerDatapoint dp) {
+        void HandleLogDatapoint(object sender, LoggerDatapoint[] points) {
 
-            if (!double.IsNaN(dp.Min))
-                zgc.GraphPane.CurveList[0].AddPoint(
-                    dp.t, dp.Min);
-            if(!double.IsNaN(dp.Mean))
-                zgc.GraphPane.CurveList[1].AddPoint(
-                    dp.t, dp.Mean);
-            if(!double.IsNaN(dp.Max))
-            zgc.GraphPane.CurveList[2].AddPoint(
-                dp.t, dp.Max);
-            if(!double.IsNaN(dp.RMS))
-                zgc.GraphPane.CurveList[3].AddPoint(
-                    dp.t, dp.RMS);
-            if (!double.IsNaN(dp.Low))
-                zgc.GraphPane.CurveList[4].AddPoint(
-                    dp.t, dp.Low);
-            if (!double.IsNaN(dp.High))
-                zgc.GraphPane.CurveList[5].AddPoint(
-                    dp.t, dp.High);
+            // Add every point in the batch to the curves first, then redraw the
+            // graph a single time. Redrawing per-point causes visible UI lag when
+            // logging at short intervals (many points arrive per batch).
+            foreach (var dp in points)
+            {
+                if (!double.IsNaN(dp.Min))
+                    zgc.GraphPane.CurveList[0].AddPoint(
+                        dp.t, dp.Min);
+                if (!double.IsNaN(dp.Mean))
+                    zgc.GraphPane.CurveList[1].AddPoint(
+                        dp.t, dp.Mean);
+                if (!double.IsNaN(dp.Max))
+                    zgc.GraphPane.CurveList[2].AddPoint(
+                        dp.t, dp.Max);
+                if (!double.IsNaN(dp.RMS))
+                    zgc.GraphPane.CurveList[3].AddPoint(
+                        dp.t, dp.RMS);
+                if (!double.IsNaN(dp.Low))
+                    zgc.GraphPane.CurveList[4].AddPoint(
+                        dp.t, dp.Low);
+                if (!double.IsNaN(dp.High))
+                    zgc.GraphPane.CurveList[5].AddPoint(
+                        dp.t, dp.High);
+            }
             zgc.AxisChange();
             zgc.Invalidate();
         }
@@ -735,13 +821,42 @@ namespace HP663xxCtrl {
             {
                 using (StreamWriter sw = new StreamWriter(sfd.FileName))
                 {
-                    var meanPoints = zgc.GraphPane.CurveList[1].Points;
                     string sep = CultureInfo.CurrentCulture.TextInfo.ListSeparator;
+                    var curves = zgc.GraphPane.CurveList;
+                    string[] curveNames = { "Min", "Mean", "Max", "RMS", "Low", "High" };
 
-                    for (int i = 0; i < meanPoints.Count; i++)
+                    sw.WriteLine("Time" + sep + String.Join(sep, curveNames));
+
+                    // Curves can have different point counts (a curve with no
+                    // measured data for the current mode/instrument has zero points).
+                    int rowCount = 0;
+                    foreach (var curve in curves)
                     {
-                        sw.Write(meanPoints[i].X.ToString() + sep);
-                        sw.WriteLine(String.Join(sep, meanPoints[i].Y));
+                        rowCount = Math.Max(rowCount, curve.Points.Count);
+                    }
+
+                    for (int i = 0; i < rowCount; i++)
+                    {
+                        double t = double.NaN;
+                        var values = new string[curves.Count];
+                        for (int c = 0; c < curves.Count; c++)
+                        {
+                            if (i < curves[c].Points.Count)
+                            {
+                                values[c] = curves[c].Points[i].Y.ToString(CultureInfo.CurrentCulture);
+                                if (double.IsNaN(t))
+                                {
+                                    t = curves[c].Points[i].X;
+                                }
+                            }
+                            else
+                            {
+                                values[c] = "";
+                            }
+                        }
+
+                        sw.Write(t.ToString(CultureInfo.CurrentCulture) + sep);
+                        sw.WriteLine(String.Join(sep, values));
                     }
                 }
             } catch (IOException ioex) {
@@ -989,7 +1104,7 @@ namespace HP663xxCtrl {
             }
         }
 
-        private void RecallProgramButton_Click(object sender, RoutedEventArgs e)
+        private async void RecallProgramButton_Click(object sender, RoutedEventArgs e)
         {
             if (InstrumentProgramsList.SelectedItem != null)
             {
@@ -998,11 +1113,22 @@ namespace HP663xxCtrl {
 
                 VM.InstWorker.ExecuteProgramOp(ProgramOpType.Program_Op_Recall, programID);
 
-                // We need to wait for the intrument to set-up the settings.
-                Thread.Sleep(500);
+                RecallProgramButton.IsEnabled = false;
+                ActivityStatusBarItem.Content = "RECALLING PROGRAM...";
+                try
+                {
+                    // We need to wait for the instrument to set-up the settings. Use a
+                    // non-blocking delay so the UI thread stays responsive while waiting.
+                    await Task.Delay(500);
 
-                // Refresh the program details.
-                VM.InstWorker.RefreshProgramDetails();
+                    // Refresh the program details.
+                    VM.InstWorker.RefreshProgramDetails();
+                }
+                finally
+                {
+                    RecallProgramButton.IsEnabled = true;
+                    ActivityStatusBarItem.Content = "IDLE";
+                }
             }
         }
 
@@ -1017,16 +1143,26 @@ namespace HP663xxCtrl {
             }
         }
 
-        private void ResetIntruementButton_Click(object sender, RoutedEventArgs e)
+        private async void ResetIntruementButton_Click(object sender, RoutedEventArgs e)
         {
             VM.InstWorker.ExecuteResetInstrument();
 
-            // We need to wait for the instrument to set-up the settings.
-            Thread.Sleep(500);
+            ResetInstrumentButton.IsEnabled = false;
+            ActivityStatusBarItem.Content = "RESETTING INSTRUMENT...";
+            try
+            {
+                // We need to wait for the instrument to set-up the settings. Use a
+                // non-blocking delay so the UI thread stays responsive while waiting.
+                await Task.Delay(500);
 
-            // Refresh the program details.
-            VM.InstWorker.RefreshProgramDetails();
-
+                // Refresh the program details.
+                VM.InstWorker.RefreshProgramDetails();
+            }
+            finally
+            {
+                ResetInstrumentButton.IsEnabled = true;
+                ActivityStatusBarItem.Content = "IDLE";
+            }
         }
     }
 }

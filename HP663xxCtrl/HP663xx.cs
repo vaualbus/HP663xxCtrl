@@ -272,7 +272,6 @@ namespace HP663xxCtrl
             swVersion = IDParts[3].ToUpper();
             
             var versionParts = swVersion.Split('.');
-            var hasCoupledMode = int.Parse(versionParts[1]) >= 2 && int.Parse(versionParts[2]) >= 4;
             HasDataLog = int.Parse(versionParts[1]) >= 3; 
 
             WriteString("STATUS:PRESET"); // Clear PTR/NTR/ENABLE register
@@ -612,6 +611,10 @@ namespace HP663xxCtrl
                         ret.Min = data[i + 1];
                         ret.Max = data[i + 2];
                         ret.RMS = double.NaN;
+                        // DLOG doesn't report Low/High envelope; leave as NaN (not 0.0) so
+                        // the graph/CSV export correctly treat them as "not measured".
+                        ret.Low = double.NaN;
+                        ret.High = double.NaN;
                         ret.t = DLogLostTime + LoggingN * DLogPeriod;
                         ret.RecordTime = recordTime;
                         LoggingN++;
@@ -659,6 +662,9 @@ namespace HP663xxCtrl
                     ret.Min = parts[1];
                     ret.Max = parts[2];
                     ret.RMS = parts[3];
+                    // Low/High envelope isn't queried for voltage; NaN (not 0.0) means "not measured".
+                    ret.Low = double.NaN;
+                    ret.High = double.NaN;
                 } break;
 
                 case SenseModeEnum.DVM:
@@ -666,6 +672,11 @@ namespace HP663xxCtrl
                     parts = QueryDouble("MEAS:DVM?:FETCH:VOLT:ACDC?");
                     ret.Mean = parts[0];
                     ret.RMS = parts[1];
+                    // Min/Max/Low/High aren't provided by the DVM query; NaN means "not measured".
+                    ret.Min = double.NaN;
+                    ret.Max = double.NaN;
+                    ret.Low = double.NaN;
+                    ret.High = double.NaN;
                 } break;
             }
 
@@ -941,7 +952,7 @@ namespace HP663xxCtrl
             int psc = int.Parse(Query("*PSC?"), CI);
             if (psc == 0)
             {
-                WriteString("*PSC 1"); ;
+                WriteString("*PSC 1");
             }
         }
 

@@ -101,7 +101,7 @@ namespace HP663xxCtrl
         public event EventHandler<InstrumentState> NewState;
         public event EventHandler<StateEventData> StateChanged;
         public event EventHandler<ProgramDetails> ProgramDetailsReadback;
-        public event EventHandler<LoggerDatapoint> LogerDatapointAcquired;
+        public event EventHandler<LoggerDatapoint[]> LogerDatapointAcquired;
         public string VisaAddress { get; private set; }
 
         public int NumOfPresetPrograms;
@@ -325,12 +325,11 @@ namespace HP663xxCtrl
                 }
 
                 var data = dev.EndLogging(channel, mode);
-                if (LogerDatapointAcquired != null)
+                if (LogerDatapointAcquired != null && data.Length > 0)
                 {
-                    foreach (var p in data)
-                    {
-                        LogerDatapointAcquired(this, p);
-                    }
+                    // Fire once per batch (instead of once per point) so the UI only
+                    // has to redraw the graph once per batch, not once per point.
+                    LogerDatapointAcquired(this, data);
                 }
             }
 
