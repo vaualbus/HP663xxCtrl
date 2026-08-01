@@ -9,7 +9,8 @@
     <SolidColorBrush x:Key="GroupBoxBorderBrush" Color="DarkOrange"/>
 
     <SolidColorBrush x:Key="MenuBackgroundBrush" Color="#FFF0F0F0"/>
-    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#FFDDDDDD"/>
+    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#FFF0F0F0"/>
+    <SolidColorBrush x:Key="StatusBarForegroundBrush" Color="#FF000000"/>
 
     <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#FFE1E1E1"/>
     <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#FF000000"/>

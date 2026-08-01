@@ -84,8 +84,13 @@
         <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
       </Style>
 
+      <Style TargetType="TabControl">
+        <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}"/>
+      </Style>
+
       <Style TargetType="TabItem">
         <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+        <Setter Property="Background" Value="{DynamicResource GroupBoxBackgroundBrush}"/>
       </Style>
 
       <Style TargetType="Menu">
@@ -102,7 +107,7 @@
       </Style>
 
       <Style TargetType="StatusBarItem">
-        <Setter Property="Foreground" Value="{DynamicResource WindowForegroundBrush}"/>
+        <Setter Property="Foreground" Value="{DynamicResource StatusBarForegroundBrush}"/>
       </Style>
 
       <Style x:Key="ChannelHiddenAtStartup" TargetType="UIElement">
@@ -114,7 +119,7 @@
     <Grid>
 
         <Grid.ColumnDefinitions>
-          <ColumnDefinition Width="244" MinWidth="210" MaxWidth="420"/>
+          <ColumnDefinition Width="290" MinWidth="240" MaxWidth="420"/>
           <!-- Left panel (drag the splitter to resize) -->
           <ColumnDefinition Width="6"/>
           <!-- Splitter -->
@@ -146,11 +151,13 @@
                 <MenuItem Header="Download Firmware" Command="{Binding DLFirmwareCommand}"/>
             </MenuItem>
             <MenuItem Header="_View">
-                <MenuItem Header="Theme">
-                    <MenuItem x:Name="LightThemeMenuItem" Header="_Light" Tag="Light" IsCheckable="True" IsChecked="True" Click="ThemeMenuItem_Click"/>
-                    <MenuItem x:Name="DarkThemeMenuItem" Header="_Dark" Tag="Dark" IsCheckable="True" Click="ThemeMenuItem_Click"/>
-                    <MenuItem x:Name="BlueThemeMenuItem" Header="_Blue" Tag="Blue" IsCheckable="True" Click="ThemeMenuItem_Click"/>
-                    <MenuItem x:Name="HighContrastThemeMenuItem" Header="_High Contrast" Tag="HighContrast" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                <MenuItem x:Name="ThemeMenu" Header="Theme">
+                    <MenuItem Header="_Light" Tag="Light" IsCheckable="True" IsChecked="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem Header="_Dark" Tag="Dark" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem Header="_Blue" Tag="Blue" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem Header="Solarized D_ark" Tag="SolarizedDark" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem Header="Solarized _Light" Tag="SolarizedLight" IsCheckable="True" Click="ThemeMenuItem_Click"/>
+                    <MenuItem Header="_Nord" Tag="Nord" IsCheckable="True" Click="ThemeMenuItem_Click"/>
                 </MenuItem>
             </MenuItem>
         </Menu>

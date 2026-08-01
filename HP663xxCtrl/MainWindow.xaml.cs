@@ -113,7 +113,9 @@ namespace HP663xxCtrl {
             { "Light", "Themes/LightTheme.xaml" },
             { "Dark", "Themes/DarkTheme.xaml" },
             { "Blue", "Themes/BlueTheme.xaml" },
-            { "HighContrast", "Themes/HighContrastTheme.xaml" },
+            { "SolarizedDark", "Themes/SolarizedDarkTheme.xaml" },
+            { "SolarizedLight", "Themes/SolarizedLightTheme.xaml" },
+            { "Nord", "Themes/NordTheme.xaml" },
         };
 
         private void ApplyTheme(string themeName)
@@ -136,10 +138,10 @@ namespace HP663xxCtrl {
             }
             appResources.MergedDictionaries.Add(newDict);
 
-            LightThemeMenuItem.IsChecked = themeName == "Light";
-            DarkThemeMenuItem.IsChecked = themeName == "Dark";
-            BlueThemeMenuItem.IsChecked = themeName == "Blue";
-            HighContrastThemeMenuItem.IsChecked = themeName == "HighContrast";
+            foreach (MenuItem item in ThemeMenu.Items)
+            {
+                item.IsChecked = (string)item.Tag == themeName;
+            }
 
             ApplyGraphTheme();
         }

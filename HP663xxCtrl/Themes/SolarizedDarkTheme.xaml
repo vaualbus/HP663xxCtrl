@@ -1,0 +1,49 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Solarized Dark (https://ethanschoonover.com/solarized/) -->
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="WindowForegroundBrush" Color="#FF839496"/>
+
+    <SolidColorBrush x:Key="GroupBoxBackgroundBrush" Color="#FF073642"/>
+    <SolidColorBrush x:Key="GroupBoxBorderBrush" Color="#FF268BD2"/>
+
+    <SolidColorBrush x:Key="MenuBackgroundBrush" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="StatusBarForegroundBrush" Color="#FF839496"/>
+
+    <SolidColorBrush x:Key="ButtonBackgroundBrush" Color="#FF073642"/>
+    <SolidColorBrush x:Key="ButtonForegroundBrush" Color="#FF93A1A1"/>
+
+    <SolidColorBrush x:Key="SplitterBackgroundBrush" Color="#FF073642"/>
+
+    <!-- TextBox / ComboBox / numeric input boxes -->
+    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#FF0A3D4A"/>
+    <SolidColorBrush x:Key="ControlForegroundBrush" Color="#FF93A1A1"/>
+    <SolidColorBrush x:Key="ControlBorderBrush" Color="#FF586E75"/>
+
+    <!-- ZedGraph colors (applied in code-behind since the graph is WinForms-hosted) -->
+    <Color x:Key="GraphBackColor">#FF002B36</Color>
+    <Color x:Key="GraphForeColor">#FF839496</Color>
+
+    <!-- Default WPF control chrome reads these SystemColors keys directly,
+         bypassing plain Background/Foreground setters - override them so
+         native chrome (TabControl pane, disabled controls, menus) matches. -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}" Color="#FF839496"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF073642"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#FF93A1A1"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightBrushKey}" Color="#FF0A3D4A"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlLightLightBrushKey}" Color="#FF0F4C5C"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkBrushKey}" Color="#FF073642"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ControlDarkDarkBrushKey}" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF268BD2"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFFDF6E3"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.GrayTextBrushKey}" Color="#FF586E75"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBarBrushKey}" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FF002B36"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#FF839496"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.ActiveBorderBrushKey}" Color="#FF073642"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveBorderBrushKey}" Color="#FF073642"/>
+
+</ResourceDictionary>
